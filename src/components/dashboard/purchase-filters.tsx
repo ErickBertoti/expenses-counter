@@ -42,6 +42,7 @@ function resolveFilterHref(
 
   for (const [key, value] of Object.entries(updates)) {
     const shouldDelete = !value || (key === "status" && value === "all")
+
     if (shouldDelete) {
       params.delete(key)
     } else {
@@ -67,6 +68,26 @@ export function PurchaseFilters({
   const [query, setQuery] = useState(filters.query)
   const deferredQuery = useDeferredValue(query)
   const searchParamsString = searchParams.toString()
+
+  function replaceFilters(
+    updates: Partial<Record<"q" | "status" | "month" | "card", string>>
+  ) {
+    startTransition(() => {
+      router.replace(resolveFilterHref(pathname, searchParamsString, updates), {
+        scroll: false,
+      })
+    })
+  }
+
+  function resetFilters() {
+    setQuery("")
+    replaceFilters({
+      q: "",
+      status: "all",
+      month: "",
+      card: "",
+    })
+  }
 
   useEffect(() => {
     if (deferredQuery === filters.query) {
@@ -95,7 +116,7 @@ export function PurchaseFilters({
         </p>
       </div>
 
-      <FieldGroup className="gap-4 lg:grid lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]">
+      <FieldGroup className="gap-4 md:grid md:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]">
         <Field>
           <FieldLabel htmlFor="filter-query">Buscar compra</FieldLabel>
           <FieldContent>
@@ -118,18 +139,7 @@ export function PurchaseFilters({
             <Select
               id="filter-status"
               value={filters.status}
-              onValueChange={(value) =>
-                startTransition(() => {
-                  router.replace(
-                    resolveFilterHref(pathname, searchParamsString, {
-                      status: value ?? "all",
-                    }),
-                    {
-                      scroll: false,
-                    }
-                  )
-                })
-              }
+              onValueChange={(value) => replaceFilters({ status: value ?? "all" })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -152,18 +162,7 @@ export function PurchaseFilters({
               id="filter-month"
               type="month"
               value={filters.month}
-              onChange={(event) =>
-                startTransition(() => {
-                  router.replace(
-                    resolveFilterHref(pathname, searchParamsString, {
-                      month: event.target.value,
-                    }),
-                    {
-                      scroll: false,
-                    }
-                  )
-                })
-              }
+              onChange={(event) => replaceFilters({ month: event.target.value })}
             />
           </FieldContent>
         </Field>
@@ -176,16 +175,7 @@ export function PurchaseFilters({
                 id="filter-card"
                 value={filters.cardId || "all"}
                 onValueChange={(value) =>
-                  startTransition(() => {
-                    router.replace(
-                      resolveFilterHref(pathname, searchParamsString, {
-                        card: value === "all" ? "" : value ?? "",
-                      }),
-                      {
-                        scroll: false,
-                      }
-                    )
-                  })
+                  replaceFilters({ card: value === "all" ? "" : value ?? "" })
                 }
               >
                 <SelectTrigger className="w-full">
@@ -205,27 +195,12 @@ export function PurchaseFilters({
             </FieldContent>
           </Field>
         ) : (
-          <div className="flex items-end">
+          <div className="flex items-end md:col-span-2 lg:col-span-1">
             <Button
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => {
-                setQuery("")
-                startTransition(() => {
-                  router.replace(
-                    resolveFilterHref(pathname, searchParamsString, {
-                      q: "",
-                      status: "all",
-                      month: "",
-                      card: "",
-                    }),
-                    {
-                      scroll: false,
-                    }
-                  )
-                })
-              }}
+              onClick={resetFilters}
             >
               <RotateCcwIcon data-icon="inline-start" />
               Limpar filtros
@@ -239,22 +214,8 @@ export function PurchaseFilters({
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              setQuery("")
-              startTransition(() => {
-                router.replace(
-                  resolveFilterHref(pathname, searchParamsString, {
-                    q: "",
-                    status: "all",
-                    month: "",
-                    card: "",
-                  }),
-                  {
-                    scroll: false,
-                  }
-                )
-              })
-            }}
+            className="w-full sm:w-auto"
+            onClick={resetFilters}
           >
             <RotateCcwIcon data-icon="inline-start" />
             Limpar filtros

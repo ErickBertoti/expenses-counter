@@ -1,6 +1,7 @@
 "use client"
 
 import { startTransition, useState } from "react"
+import type { ComponentProps } from "react"
 import { Loader2Icon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -17,17 +18,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type DeletePurchaseButtonProps = {
   purchaseId: string
   description: string
+  className?: string
+  showLabel?: boolean
+  size?: ComponentProps<typeof Button>["size"]
+  variant?: ComponentProps<typeof Button>["variant"]
 }
 
 export function DeletePurchaseButton({
   purchaseId,
   description,
+  className,
+  showLabel = false,
+  size = showLabel ? "sm" : "icon-sm",
+  variant = "ghost",
 }: DeletePurchaseButtonProps) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
@@ -55,10 +64,17 @@ export function DeletePurchaseButton({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger
-        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+        className={cn(buttonVariants({ variant, size }), className)}
         aria-label={`Excluir ${description}`}
       >
-        <Trash2Icon />
+        {showLabel ? (
+          <>
+            <Trash2Icon data-icon="inline-start" />
+            Excluir
+          </>
+        ) : (
+          <Trash2Icon />
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>

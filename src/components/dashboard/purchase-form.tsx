@@ -262,7 +262,11 @@ export function PurchaseForm({
           </FieldGroup>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button type="submit" className="sm:flex-1" disabled={pending}>
+            <Button
+              type="submit"
+              className="w-full sm:flex-1"
+              disabled={pending}
+            >
               {pending ? (
                 <Loader2Icon data-icon="inline-start" className="animate-spin" />
               ) : isEditing ? (
@@ -278,7 +282,8 @@ export function PurchaseForm({
                 className={cn(
                   buttonVariants({
                     variant: "outline",
-                  })
+                  }),
+                  "w-full sm:w-auto"
                 )}
               >
                 Cancelar edição

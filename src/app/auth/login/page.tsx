@@ -34,9 +34,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const errorMessage = readQueryParam(params.error)
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-      <section className="grid w-full max-w-5xl gap-6 overflow-hidden rounded-[32px] border border-border/70 bg-background/90 shadow-xl shadow-foreground/5 backdrop-blur xl:grid-cols-[1.05fr_0.95fr]">
-        <div className="flex flex-col justify-between gap-10 bg-[linear-gradient(145deg,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_54%),linear-gradient(180deg,color-mix(in_oklab,var(--accent)_22%,transparent),transparent_70%)] p-8 sm:p-10">
+    <main className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-[28px] border border-border/70 bg-background/90 shadow-xl shadow-foreground/5 backdrop-blur xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="order-2 flex flex-col justify-between gap-8 bg-[linear-gradient(145deg,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_54%),linear-gradient(180deg,color-mix(in_oklab,var(--accent)_22%,transparent),transparent_70%)] p-6 sm:p-8 xl:order-1 xl:p-10">
           <div className="flex flex-col gap-4">
             <Badge variant="secondary" className="w-fit">
               Local, simples e pessoal
@@ -51,7 +51,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </p>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="rounded-3xl border border-border/70 bg-background/80 p-4">
               <div className="text-sm font-medium">Parcelas antigas</div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -68,9 +68,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center p-6 sm:p-10">
-          <div className="w-full rounded-[28px] border border-border/70 bg-background p-6 shadow-sm">
-            <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="order-1 flex items-center p-4 sm:p-6 xl:order-2 xl:p-10">
+          <div className="w-full rounded-[24px] border border-border/70 bg-background p-5 shadow-sm sm:rounded-[28px] sm:p-6">
+            <div className="mb-5 flex items-start justify-between gap-4 sm:mb-6">
               <div className="flex flex-col gap-2">
                 <Badge variant="outline" className="w-fit">
                   Acesso por email

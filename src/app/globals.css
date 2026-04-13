@@ -122,12 +122,12 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply overflow-x-clip bg-background text-foreground;
     background-image:
       radial-gradient(circle at top right, color-mix(in oklab, var(--primary) 10%, transparent) 0, transparent 34%),
       radial-gradient(circle at bottom left, color-mix(in oklab, var(--accent) 22%, transparent) 0, transparent 28%);
   }
   html {
-    @apply font-sans;
+    @apply overflow-x-clip font-sans;
   }
 }

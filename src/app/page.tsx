@@ -115,7 +115,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+    <main className="min-h-screen px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-5 rounded-[30px] border border-border/70 bg-background/90 p-6 shadow-sm backdrop-blur lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-3">
@@ -132,12 +132,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </p>
             </div>
           </div>
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <Badge variant="secondary" className="max-w-full truncate">
+          <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
+            <Badge
+              variant="secondary"
+              className="w-full justify-center truncate text-center sm:w-auto sm:max-w-full sm:justify-start sm:text-left"
+            >
               {dashboard.user.email}
             </Badge>
-            <form action={signOut}>
-              <Button variant="outline" type="submit">
+            <form action={signOut} className="w-full sm:w-auto">
+              <Button variant="outline" type="submit" className="w-full">
                 Sair
               </Button>
             </form>
@@ -145,7 +148,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </header>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_23rem]">
-          <div className="flex flex-col gap-6 xl:order-1">
+          <div className="order-2 flex min-w-0 flex-col gap-6 xl:order-1">
             <section className="rounded-[30px] border border-border/70 bg-background/85 p-5 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -162,7 +165,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   terminou.
                 </p>
               </div>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <SummaryMetric
                   label="Total do mês"
                   value={formatCurrencyFromCents(
@@ -238,32 +241,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                             key={purchase.id}
                             className="rounded-3xl border border-border/70 bg-muted/25 p-4"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h3 className="truncate font-medium">
-                                  {purchase.description}
-                                </h3>
-                                <div className="mt-1 flex flex-wrap items-center gap-2">
-                                  <Badge variant="outline">{purchase.card_name}</Badge>
-                                  <Badge
-                                    variant={statusBadgeVariant(purchase.status)}
-                                  >
-                                    {purchase.status === "active"
-                                      ? "Em andamento"
-                                      : "Concluída"}
-                                  </Badge>
-                                </div>
+                            <div className="min-w-0">
+                              <h3 className="truncate font-medium">
+                                {purchase.description}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <Badge variant="outline">{purchase.card_name}</Badge>
+                                <Badge
+                                  variant={statusBadgeVariant(purchase.status)}
+                                >
+                                  {purchase.status === "active"
+                                    ? "Em andamento"
+                                    : "Concluída"}
+                                </Badge>
                               </div>
-                              <Link
-                                href={editHref}
-                                className={buttonVariants({
-                                  variant: "outline",
-                                  size: "icon-sm",
-                                })}
-                                aria-label={`Editar ${purchase.description}`}
-                              >
-                                <PencilLineIcon />
-                              </Link>
                             </div>
                             <dl className="mt-4 grid gap-2 text-sm">
                               <div className="flex items-center justify-between gap-3">
@@ -282,11 +273,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                               <div className="flex items-center justify-between gap-3">
                                 <dt className="text-muted-foreground">Progresso</dt>
                                 <dd>
-                                  {purchase.paid_installments}/{purchase.installment_count}
+                                  {purchase.paid_installments}/
+                                  {purchase.installment_count}
                                 </dd>
                               </div>
                               <div className="flex items-center justify-between gap-3">
-                                <dt className="text-muted-foreground">{focusColumnLabel}</dt>
+                                <dt className="text-muted-foreground">
+                                  {focusColumnLabel}
+                                </dt>
                                 <dd>
                                   {monthAmount === null
                                     ? "Sem parcela"
@@ -294,7 +288,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                                 </dd>
                               </div>
                               <div className="flex items-center justify-between gap-3">
-                                <dt className="text-muted-foreground">Saldo restante</dt>
+                                <dt className="text-muted-foreground">
+                                  Saldo restante
+                                </dt>
                                 <dd>
                                   {formatCurrencyFromCents(
                                     purchase.remaining_amount_cents
@@ -302,10 +298,25 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                                 </dd>
                               </div>
                             </dl>
-                            <div className="mt-4 flex justify-end">
+                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                              <Link
+                                href={editHref}
+                                className={cn(
+                                  buttonVariants({
+                                    variant: "outline",
+                                  }),
+                                  "w-full sm:flex-1"
+                                )}
+                              >
+                                <PencilLineIcon data-icon="inline-start" />
+                                Editar
+                              </Link>
                               <DeletePurchaseButton
                                 description={purchase.description}
                                 purchaseId={purchase.id}
+                                variant="outline"
+                                showLabel
+                                className="w-full sm:flex-1"
                               />
                             </div>
                           </article>
@@ -446,47 +457,97 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                     </EmptyHeader>
                   </Empty>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Mês</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Compras</TableHead>
-                          <TableHead>Parcelas</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {dashboard.monthlySummaries.map((summary) => {
-                          const isFocusMonth = summary.month === dashboard.focusMonth
+                  <>
+                    <div className="flex flex-col gap-3 md:hidden">
+                      {dashboard.monthlySummaries.map((summary) => {
+                        const isFocusMonth = summary.month === dashboard.focusMonth
 
-                          return (
-                            <TableRow key={summary.month}>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <span>{summary.month_label}</span>
-                                  {isFocusMonth ? (
-                                    <Badge variant="secondary">Em foco</Badge>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {formatCurrencyFromCents(summary.total_amount_cents)}
-                              </TableCell>
-                              <TableCell>{summary.purchase_count}</TableCell>
-                              <TableCell>{summary.installment_count}</TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        return (
+                          <article
+                            key={summary.month}
+                            className="rounded-3xl border border-border/70 bg-muted/25 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="font-medium">
+                                  {summary.month_label}
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {summary.purchase_count} compras e{" "}
+                                  {summary.installment_count} parcelas
+                                </p>
+                              </div>
+                              {isFocusMonth ? (
+                                <Badge variant="secondary">Em foco</Badge>
+                              ) : null}
+                            </div>
+                            <dl className="mt-4 grid gap-2 text-sm">
+                              <div className="flex items-center justify-between gap-3">
+                                <dt className="text-muted-foreground">Total</dt>
+                                <dd>
+                                  {formatCurrencyFromCents(
+                                    summary.total_amount_cents
+                                  )}
+                                </dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <dt className="text-muted-foreground">Compras</dt>
+                                <dd>{summary.purchase_count}</dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
+                                <dt className="text-muted-foreground">Parcelas</dt>
+                                <dd>{summary.installment_count}</dd>
+                              </div>
+                            </dl>
+                          </article>
+                        )
+                      })}
+                    </div>
+
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Mês</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Compras</TableHead>
+                            <TableHead>Parcelas</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dashboard.monthlySummaries.map((summary) => {
+                            const isFocusMonth = summary.month === dashboard.focusMonth
+
+                            return (
+                              <TableRow key={summary.month}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <span>{summary.month_label}</span>
+                                    {isFocusMonth ? (
+                                      <Badge variant="secondary">Em foco</Badge>
+                                    ) : null}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrencyFromCents(
+                                    summary.total_amount_cents
+                                  )}
+                                </TableCell>
+                                <TableCell>{summary.purchase_count}</TableCell>
+                                <TableCell>{summary.installment_count}</TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          <aside className="xl:sticky xl:top-6 xl:order-2 xl:self-start">
+          <aside className="order-1 min-w-0 xl:sticky xl:top-6 xl:order-2 xl:self-start">
             <PurchaseForm
               key={dashboard.selectedPurchase?.id ?? "new"}
               cards={dashboard.cards}
