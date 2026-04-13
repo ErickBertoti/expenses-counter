@@ -35,6 +35,8 @@ export type PurchaseFormValues = {
 
 export type PurchaseStatus = "active" | "completed"
 
+export type DashboardView = "purchases" | "summary"
+
 export type PurchaseWithProgress = PurchaseRecord & {
   card_name: string
   installment_amounts_cents: number[]
@@ -59,6 +61,7 @@ export type DashboardFilters = {
   status: "all" | PurchaseStatus
   month: string
   cardId: string
+  view: DashboardView
   editId: string
   flash: string
 }

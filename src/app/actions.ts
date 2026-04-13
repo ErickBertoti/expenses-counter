@@ -6,6 +6,7 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 
 import { createClient } from "@/lib/server"
+import { resolveAppOrigin } from "@/lib/app-origin"
 import {
   monthKeyFromDate,
   parseCurrencyInputToCents,
@@ -91,12 +92,11 @@ function mapZodIssuesToFieldErrors(error: z.ZodError) {
 
 async function getAppOrigin() {
   const headerStore = await headers()
-  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host")
-  const protocol =
-    headerStore.get("x-forwarded-proto") ??
-    (host?.includes("localhost") ? "http" : "https")
-
-  return host ? `${protocol}://${host}` : "http://localhost:3000"
+  return resolveAppOrigin({
+    forwardedHost: headerStore.get("x-forwarded-host"),
+    forwardedProto: headerStore.get("x-forwarded-proto"),
+    host: headerStore.get("host"),
+  })
 }
 
 export async function requestMagicLink(

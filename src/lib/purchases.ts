@@ -1,5 +1,6 @@
 import type {
   DashboardFilters,
+  DashboardView,
   MonthlySummary,
   PurchaseRecord,
   PurchaseWithProgress,
@@ -7,6 +8,7 @@ import type {
 
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const DASHBOARD_VIEWS = new Set<DashboardView>(["purchases", "summary"])
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -65,6 +67,10 @@ function capitalizeLabel(value: string) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function isDashboardView(value: string): value is DashboardView {
+  return DASHBOARD_VIEWS.has(value as DashboardView)
 }
 
 export function isValidMonthKey(value: string) {
@@ -332,6 +338,7 @@ export function parseDashboardFilters(
   const rawStatus = firstSearchParamValue(searchParams.status)
   const month = firstSearchParamValue(searchParams.month)
   const flash = firstSearchParamValue(searchParams.flash).trim()
+  const rawView = firstSearchParamValue(searchParams.view)
 
   return {
     query,
@@ -339,13 +346,14 @@ export function parseDashboardFilters(
       rawStatus === "active" || rawStatus === "completed" ? rawStatus : "all",
     month: isValidMonthKey(month) ? month : "",
     cardId: firstSearchParamValue(searchParams.card).trim(),
+    view: isDashboardView(rawView) ? rawView : "purchases",
     editId: firstSearchParamValue(searchParams.edit).trim(),
     flash,
   }
 }
 
 export function buildReturnToPath(
-  filters: Pick<DashboardFilters, "query" | "status" | "month" | "cardId">,
+  filters: Pick<DashboardFilters, "query" | "status" | "month" | "cardId" | "view">,
   extras?: Record<string, string | undefined>
 ) {
   const params = new URLSearchParams()
@@ -364,6 +372,10 @@ export function buildReturnToPath(
 
   if (filters.cardId) {
     params.set("card", filters.cardId)
+  }
+
+  if (filters.view !== "purchases") {
+    params.set("view", filters.view)
   }
 
   for (const [key, value] of Object.entries(extras ?? {})) {

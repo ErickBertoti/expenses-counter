@@ -123,3 +123,5 @@ export async function getDashboardData(
     user,
   }
 }
+
+export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>

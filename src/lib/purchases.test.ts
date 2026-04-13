@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
   buildMonthlySummaries,
   buildPurchaseWithProgress,
+  buildReturnToPath,
   getInstallmentAmountForMonth,
+  parseDashboardFilters,
 } from "./purchases"
 import type { PurchaseRecord } from "./types"
 
@@ -137,5 +139,40 @@ describe("purchase calculations", () => {
         installment_count: 1,
       },
     ])
+  })
+
+  it("defaults the dashboard view to purchases", () => {
+    expect(parseDashboardFilters({})).toMatchObject({
+      view: "purchases",
+    })
+  })
+
+  it("reads the summary view from query params", () => {
+    expect(
+      parseDashboardFilters({
+        view: "summary",
+      })
+    ).toMatchObject({
+      view: "summary",
+    })
+  })
+
+  it("preserves a non-default view in the return path", () => {
+    expect(
+      buildReturnToPath(
+        {
+          query: "viagem",
+          status: "active",
+          month: "2025-03",
+          cardId: "card-1",
+          view: "summary",
+        },
+        {
+          edit: "purchase-1",
+        }
+      )
+    ).toBe(
+      "/?q=viagem&status=active&month=2025-03&card=card-1&view=summary&edit=purchase-1"
+    )
   })
 })

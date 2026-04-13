@@ -26,11 +26,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CardRecord, DashboardFilters } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 type PurchaseFiltersProps = {
   cards: CardRecord[]
+  className?: string
   filters: DashboardFilters
+  idPrefix?: string
   showCardFilter: boolean
+  variant?: "desktop" | "mobile"
 }
 
 function resolveFilterHref(
@@ -52,6 +56,7 @@ function resolveFilterHref(
 
   params.delete("edit")
   params.delete("flash")
+  params.delete("compose")
 
   const nextQuery = params.toString()
   return nextQuery ? `${pathname}?${nextQuery}` : pathname
@@ -59,8 +64,11 @@ function resolveFilterHref(
 
 export function PurchaseFilters({
   cards,
+  className,
   filters,
+  idPrefix = "purchase-filters",
   showCardFilter,
+  variant = "desktop",
 }: PurchaseFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -68,6 +76,11 @@ export function PurchaseFilters({
   const [query, setQuery] = useState(filters.query)
   const deferredQuery = useDeferredValue(query)
   const searchParamsString = searchParams.toString()
+  const isMobile = variant === "mobile"
+
+  function fieldId(name: string) {
+    return `${idPrefix}-${name}`
+  }
 
   function replaceFilters(
     updates: Partial<Record<"q" | "status" | "month" | "card", string>>
@@ -107,37 +120,50 @@ export function PurchaseFilters({
   }, [deferredQuery, filters.query, pathname, router, searchParamsString])
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="font-heading text-lg font-semibold">Filtros</h2>
-        <p className="text-sm text-muted-foreground">
-          Busque por descrição, foque um mês específico e separe compras ativas
-          das concluídas.
-        </p>
-      </div>
+    <div className={cn("flex flex-col", isMobile ? "gap-4" : "gap-5", className)}>
+      {isMobile ? null : (
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-semibold">Filtros</h2>
+          <p className="text-sm text-muted-foreground">
+            Busque por descrição, foque um mês específico e separe compras ativas
+            das concluídas.
+          </p>
+        </div>
+      )}
 
-      <FieldGroup className="gap-4 md:grid md:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]">
+      <FieldGroup
+        className={cn(
+          "gap-4",
+          isMobile
+            ? ""
+            : "md:grid md:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]"
+        )}
+      >
         <Field>
-          <FieldLabel htmlFor="filter-query">Buscar compra</FieldLabel>
+          <FieldLabel htmlFor={fieldId("query")}>Buscar compra</FieldLabel>
           <FieldContent>
             <div className="relative">
-              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <SearchIcon
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
               <Input
-                id="filter-query"
+                id={fieldId("query")}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Ex.: notebook, viagem, curso"
                 className="pl-9"
+                enterKeyHint="search"
               />
             </div>
           </FieldContent>
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="filter-status">Status</FieldLabel>
+          <FieldLabel htmlFor={fieldId("status")}>Status</FieldLabel>
           <FieldContent>
             <Select
-              id="filter-status"
+              id={fieldId("status")}
               value={filters.status}
               onValueChange={(value) => replaceFilters({ status: value ?? "all" })}
             >
@@ -156,10 +182,10 @@ export function PurchaseFilters({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="filter-month">Mês</FieldLabel>
+          <FieldLabel htmlFor={fieldId("month")}>Mês</FieldLabel>
           <FieldContent>
             <Input
-              id="filter-month"
+              id={fieldId("month")}
               type="month"
               value={filters.month}
               onChange={(event) => replaceFilters({ month: event.target.value })}
@@ -169,10 +195,10 @@ export function PurchaseFilters({
 
         {showCardFilter ? (
           <Field>
-            <FieldLabel htmlFor="filter-card">Cartão</FieldLabel>
+            <FieldLabel htmlFor={fieldId("card")}>Cartão</FieldLabel>
             <FieldContent>
               <Select
-                id="filter-card"
+                id={fieldId("card")}
                 value={filters.cardId || "all"}
                 onValueChange={(value) =>
                   replaceFilters({ card: value === "all" ? "" : value ?? "" })
@@ -194,34 +220,20 @@ export function PurchaseFilters({
               </Select>
             </FieldContent>
           </Field>
-        ) : (
-          <div className="flex items-end md:col-span-2 lg:col-span-1">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={resetFilters}
-            >
-              <RotateCcwIcon data-icon="inline-start" />
-              Limpar filtros
-            </Button>
-          </div>
-        )}
+        ) : null}
       </FieldGroup>
 
-      {showCardFilter ? (
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={resetFilters}
-          >
-            <RotateCcwIcon data-icon="inline-start" />
-            Limpar filtros
-          </Button>
-        </div>
-      ) : null}
+      <div className={cn("flex", isMobile ? "" : "justify-end")}>
+        <Button
+          type="button"
+          variant="outline"
+          className={cn(isMobile ? "w-full" : "w-full sm:w-auto")}
+          onClick={resetFilters}
+        >
+          <RotateCcwIcon data-icon="inline-start" />
+          Limpar filtros
+        </Button>
+      </div>
     </div>
   )
 }
