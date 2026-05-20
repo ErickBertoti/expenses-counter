@@ -27,7 +27,7 @@ function DrawerOverlay({
     <DrawerPrimitive.Backdrop
       data-slot="drawer-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-foreground/18 backdrop-blur-[2px]",
+        "fixed inset-0 z-50 bg-foreground/32",
         "transition-opacity duration-200 ease-out",
         "data-[starting-style]:opacity-0 data-[ending-style]:opacity-0",
         className
@@ -68,7 +68,7 @@ function DrawerContent({
             data-slot="drawer-content"
             className={cn(
               "relative flex max-h-[min(calc(100dvh-0.5rem),52rem)] min-h-0 flex-col overflow-hidden",
-              "rounded-[28px] border border-border/70 bg-background/98 shadow-2xl shadow-foreground/10",
+              "rounded-lg border border-border bg-card shadow-2xl shadow-foreground/10",
               "supports-[padding:max(0px)]:pb-0"
             )}
           >
@@ -92,7 +92,7 @@ function DrawerHeader({
     <div
       data-slot="drawer-header"
       className={cn(
-        "flex items-start justify-between gap-3 border-b border-border/70 px-4 pb-4 pt-3",
+        "flex items-start justify-between gap-3 border-b border-border px-4 pb-4 pt-3",
         className
       )}
       {...props}
@@ -164,7 +164,7 @@ function DrawerFooter({
     <div
       data-slot="drawer-footer"
       className={cn(
-        "shrink-0 border-t border-border/70 bg-background/95 px-4 pt-3",
+        "shrink-0 border-t border-border bg-card px-4 pt-3",
         "pb-[calc(0.75rem+env(safe-area-inset-bottom))]",
         className
       )}

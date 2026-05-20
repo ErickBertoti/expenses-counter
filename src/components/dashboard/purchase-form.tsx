@@ -134,10 +134,10 @@ export function PurchaseForm({
   const alertMessage = state.message ? (
     <div
       className={cn(
-        "rounded-2xl px-4 py-3 text-sm",
+        "rounded-md border px-4 py-3 text-sm",
         state.status === "error"
-          ? "bg-destructive/10 text-destructive"
-          : "bg-primary/10 text-primary"
+          ? "border-destructive/20 bg-destructive/10 text-destructive"
+          : "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
       )}
     >
       {state.message}
@@ -385,7 +385,7 @@ export function PurchaseForm({
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription>{description}</DrawerDescription>
           </DrawerHeading>
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex size-11 items-center justify-center rounded-md bg-muted text-primary">
             {isEditing ? <PencilLineIcon aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
           </div>
         </DrawerHeader>
@@ -395,10 +395,10 @@ export function PurchaseForm({
   }
 
   return (
-    <Card className="rounded-[30px] border border-border/70 bg-background/95 py-0 shadow-sm">
+    <Card className="py-0">
       <CardHeader className="border-b py-5">
         <div className="flex items-start gap-4">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <div className="flex size-11 items-center justify-center rounded-md bg-muted text-primary">
             {isEditing ? <PencilLineIcon /> : <PlusIcon />}
           </div>
           <div className="flex flex-col gap-1">

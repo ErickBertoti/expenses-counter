@@ -16,6 +16,7 @@ import { signOut } from "@/app/actions"
 import { DeletePurchaseButton } from "@/components/dashboard/delete-purchase-button"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
+import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -65,10 +66,6 @@ type DashboardBaseFilters = {
   view: DashboardView
 }
 
-function statusBadgeVariant(status: PurchaseWithProgress["status"]) {
-  return status === "active" ? "default" : "secondary"
-}
-
 function MobileMetric({
   helper,
   label,
@@ -79,11 +76,11 @@ function MobileMetric({
   value: string
 }) {
   return (
-    <article className="min-w-[15rem] snap-start rounded-[24px] border border-border/70 bg-background/92 p-4 shadow-sm">
-      <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+    <article className="min-w-[15rem] snap-start rounded-md border border-border bg-card p-4">
+      <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 font-heading text-2xl font-semibold tabular-nums">
+      <div className="mt-2 text-2xl font-semibold tabular-nums">
         {value}
       </div>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">{helper}</p>
@@ -108,16 +105,14 @@ function MobilePurchaseCard({
   const monthAmount = getInstallmentAmountForMonth(purchase, focusMonth)
 
   return (
-    <article className="rounded-[24px] border border-border/70 bg-background/90 p-4 shadow-sm">
+    <article className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <h3 className="min-w-0 flex-1 truncate text-sm font-medium">
               {purchase.description}
             </h3>
-            <Badge variant={statusBadgeVariant(purchase.status)}>
-              {purchase.status === "active" ? "Em andamento" : "Concluída"}
-            </Badge>
+            <PurchaseStatusBadge status={purchase.status} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{purchase.card_name}</Badge>
@@ -129,7 +124,7 @@ function MobilePurchaseCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Saldo
           </div>
           <div className="mt-1 text-sm font-semibold tabular-nums">
@@ -138,9 +133,9 @@ function MobilePurchaseCard({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-muted/35 p-3 text-sm">
+      <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-muted p-3 text-sm">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Progresso
           </div>
           <div className="mt-1 font-medium tabular-nums">
@@ -148,10 +143,13 @@ function MobilePurchaseCard({
           </div>
         </div>
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Parcela em foco
           </div>
-          <div className="mt-1 truncate font-medium" title={focusColumnLabel}>
+          <div
+            className="mt-1 truncate font-medium tabular-nums"
+            title={focusColumnLabel}
+          >
             {monthAmount === null
               ? "Sem parcela"
               : formatCurrencyFromCents(monthAmount)}
@@ -159,7 +157,7 @@ function MobilePurchaseCard({
         </div>
       </div>
 
-      <details className="group mt-3 rounded-2xl border border-border/60 bg-background/85">
+      <details className="group mt-3 rounded-md border border-border bg-card">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm text-muted-foreground">
           <span>Ver detalhes</span>
           <ChevronDownIcon
@@ -167,10 +165,12 @@ function MobilePurchaseCard({
             className="size-4 transition-transform duration-200 group-open:rotate-180"
           />
         </summary>
-        <dl className="grid gap-2 border-t border-border/60 px-3 py-3 text-sm">
+        <dl className="grid gap-2 border-t border-border px-3 py-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Compra</dt>
-            <dd>{formatDateLabel(purchase.purchase_date)}</dd>
+            <dd className="tabular-nums">
+              {formatDateLabel(purchase.purchase_date)}
+            </dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Período</dt>
@@ -181,11 +181,15 @@ function MobilePurchaseCard({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Total</dt>
-            <dd>{formatCurrencyFromCents(purchase.total_amount_cents)}</dd>
+            <dd className="tabular-nums">
+              {formatCurrencyFromCents(purchase.total_amount_cents)}
+            </dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-muted-foreground">Saldo restante</dt>
-            <dd>{formatCurrencyFromCents(purchase.remaining_amount_cents)}</dd>
+            <dd className="tabular-nums">
+              {formatCurrencyFromCents(purchase.remaining_amount_cents)}
+            </dd>
           </div>
         </dl>
       </details>
@@ -226,7 +230,7 @@ function MobileSummaryCard({
   isFocusMonth: boolean
 }) {
   return (
-    <article className="rounded-[24px] border border-border/70 bg-background/90 p-4 shadow-sm">
+    <article className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -238,7 +242,7 @@ function MobileSummaryCard({
           </p>
         </div>
         <div className="text-right">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Total
           </div>
           <div className="mt-1 text-sm font-semibold tabular-nums">
@@ -295,7 +299,7 @@ export function MobileDashboardShell({
       ? `Busca: ${dashboard.filters.query.slice(0, 24)}`
       : null,
     dashboard.filters.status === "active"
-      ? "Somente ativas"
+      ? "Somente em andamento"
       : dashboard.filters.status === "completed"
         ? "Somente concluídas"
         : null,
@@ -313,7 +317,7 @@ export function MobileDashboardShell({
 
   return (
     <div className="flex flex-col gap-4 lg:hidden">
-      <section className="rounded-[28px] border border-border/70 bg-background/92 p-4 shadow-sm backdrop-blur">
+      <section className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <Badge variant="outline" className="w-fit">
@@ -386,8 +390,8 @@ export function MobileDashboardShell({
         />
       </section>
 
-      <section className="rounded-[28px] border border-border/70 bg-background/90 p-4 shadow-sm">
-        <div className="flex items-center gap-2 rounded-[20px] border border-border/70 bg-muted/35 p-1">
+      <section className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-1">
           <Link
             href={purchasesViewHref}
             scroll={false}
@@ -450,7 +454,7 @@ export function MobileDashboardShell({
       {dashboard.filters.view === "summary" ? (
         <section className="flex flex-col gap-3">
           {dashboard.monthlySummaries.length === 0 ? (
-            <Empty className="rounded-[28px] border border-dashed border-border bg-background/80 p-6">
+            <Empty className="rounded-md border border-dashed border-border bg-muted p-6">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <CalendarRangeIcon />
@@ -475,7 +479,7 @@ export function MobileDashboardShell({
       ) : (
         <section className="flex flex-col gap-3">
           {dashboard.purchases.length === 0 ? (
-            <Empty className="rounded-[28px] border border-dashed border-border bg-background/80 p-6">
+            <Empty className="rounded-md border border-dashed border-border bg-muted p-6">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <SearchXIcon />

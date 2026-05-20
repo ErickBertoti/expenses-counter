@@ -57,10 +57,10 @@ export function LoginForm({ errorMessage }: LoginFormProps) {
       {message ? (
         <div
           className={cn(
-            "rounded-2xl px-4 py-3 text-sm",
+            "rounded-md border px-4 py-3 text-sm",
             isSuccess
-              ? "bg-primary/10 text-primary"
-              : "bg-destructive/10 text-destructive"
+              ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+              : "border-destructive/20 bg-destructive/10 text-destructive"
           )}
         >
           {message}
