@@ -55,6 +55,7 @@ function resolveFilterHref(
   }
 
   params.delete("edit")
+  params.delete("editMonthly")
   params.delete("flash")
   params.delete("compose")
 
@@ -175,6 +176,7 @@ export function PurchaseFilters({
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="active">Em andamento</SelectItem>
                   <SelectItem value="completed">Concluídas</SelectItem>
+                  <SelectItem value="disabled">Desativadas</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

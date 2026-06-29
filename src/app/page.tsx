@@ -6,7 +6,7 @@ import {
   formatCentsForInput,
   getCurrentMonthKey,
 } from "@/lib/purchases"
-import type { PurchaseFormValues } from "@/lib/types"
+import type { MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 
 type HomePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -48,6 +48,27 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         notes: "",
         redirectTo: returnTo,
       }
+  const monthlyExpenseFormValues: MonthlyExpenseFormValues =
+    dashboard.selectedMonthlyExpense
+      ? {
+          monthlyExpenseId: dashboard.selectedMonthlyExpense.id,
+          description: dashboard.selectedMonthlyExpense.description,
+          amount: formatCentsForInput(dashboard.selectedMonthlyExpense.amount_cents),
+          cardId: dashboard.selectedMonthlyExpense.card_id,
+          startMonth: dashboard.selectedMonthlyExpense.start_month.slice(0, 7),
+          endMonth: dashboard.selectedMonthlyExpense.end_month?.slice(0, 7) ?? "",
+          notes: dashboard.selectedMonthlyExpense.notes ?? "",
+          redirectTo: returnTo,
+        }
+      : {
+          description: "",
+          amount: "",
+          cardId: dashboard.defaultCard.id,
+          startMonth: dashboard.filters.month || currentMonth,
+          endMonth: "",
+          notes: "",
+          redirectTo: returnTo,
+        }
 
   return (
     <main className="min-h-screen px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
@@ -56,12 +77,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           dashboard={dashboard}
           focusColumnLabel={focusColumnLabel}
           formValues={formValues}
+          monthlyExpenseFormValues={monthlyExpenseFormValues}
           returnTo={returnTo}
         />
         <DesktopDashboard
           dashboard={dashboard}
           focusColumnLabel={focusColumnLabel}
           formValues={formValues}
+          monthlyExpenseFormValues={monthlyExpenseFormValues}
           returnTo={returnTo}
         />
       </div>

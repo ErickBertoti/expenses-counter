@@ -2,15 +2,25 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/server"
 import {
+  buildMonthlyBreakdowns,
+  buildMonthlyExpenseWithCard,
   buildMonthlySummaries,
   buildPurchaseWithProgress,
+  emptyMonthlyBreakdown,
   emptyMonthlySummary,
+  filterMonthlyExpenses,
   filterPurchases,
   getCurrentMonthKey,
   parseDashboardFilters,
+  sortMonthlyExpensesForDashboard,
   sortPurchasesForDashboard,
 } from "@/lib/purchases"
-import type { CardRecord, MonthlySummary, PurchaseRecord } from "@/lib/types"
+import type {
+  CardRecord,
+  MonthlyExpenseRecord,
+  MonthlySummary,
+  PurchaseRecord,
+} from "@/lib/types"
 
 async function getOrCreateCards(userId: string) {
   const supabase = await createClient()
@@ -62,6 +72,22 @@ async function getPurchases(userId: string) {
   return data as PurchaseRecord[]
 }
 
+async function getMonthlyExpenses(userId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("monthly_expenses")
+    .select("*")
+    .eq("user_id", userId)
+    .order("start_month", { ascending: true })
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data as MonthlyExpenseRecord[]
+}
+
 export async function getDashboardData(
   searchParams: Record<string, string | string[] | undefined>
 ) {
@@ -77,9 +103,10 @@ export async function getDashboardData(
   const filters = parseDashboardFilters(searchParams)
   const currentMonth = getCurrentMonthKey()
 
-  const [cards, purchaseRecords] = await Promise.all([
+  const [cards, purchaseRecords, monthlyExpenseRecords] = await Promise.all([
     getOrCreateCards(user.id),
     getPurchases(user.id),
+    getMonthlyExpenses(user.id),
   ])
 
   const cardNameById = new Map(cards.map((card) => [card.id, card.name]))
@@ -90,35 +117,84 @@ export async function getDashboardData(
       currentMonth
     )
   )
+  const monthlyExpensesWithCard = monthlyExpenseRecords.map((monthlyExpense) =>
+    buildMonthlyExpenseWithCard(
+      monthlyExpense,
+      cardNameById.get(monthlyExpense.card_id) ?? "Cartão"
+    )
+  )
   const filteredPurchases = sortPurchasesForDashboard(
     filterPurchases(purchasesWithProgress, filters)
   )
+  const filteredMonthlyExpenses = sortMonthlyExpensesForDashboard(
+    filterMonthlyExpenses(monthlyExpensesWithCard, filters)
+  )
+  const summaryFilters = {
+    ...filters,
+    month: "",
+  }
+  const summaryPurchases = filterPurchases(purchasesWithProgress, summaryFilters)
+  const summaryMonthlyExpenses = filterMonthlyExpenses(
+    monthlyExpensesWithCard,
+    summaryFilters
+  )
   const selectedPurchase =
     purchaseRecords.find((purchase) => purchase.id === filters.editId) ?? null
-  const monthlySummaries = buildMonthlySummaries(filteredPurchases)
+  const selectedMonthlyExpense =
+    monthlyExpenseRecords.find(
+      (monthlyExpense) => monthlyExpense.id === filters.monthlyEditId
+    ) ?? null
+  const monthlyBreakdowns = buildMonthlyBreakdowns({
+    focusMonth: filters.month || currentMonth,
+    monthlyExpenses: summaryMonthlyExpenses,
+    purchases: summaryPurchases,
+    referenceMonthKey: currentMonth,
+  })
+  const monthlySummaries = buildMonthlySummaries(
+    summaryPurchases,
+    summaryMonthlyExpenses,
+    {
+      focusMonth: filters.month || currentMonth,
+      referenceMonthKey: currentMonth,
+    }
+  )
   const focusMonth = filters.month || currentMonth
   const focusSummary =
     monthlySummaries.find((summary) => summary.month === focusMonth) ??
     emptyMonthlySummary(focusMonth)
+  const focusBreakdown =
+    monthlyBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
+    emptyMonthlyBreakdown(focusMonth)
   const activePurchaseCount = filteredPurchases.filter(
     (purchase) => purchase.status === "active"
   ).length
   const remainingAmountCents = filteredPurchases.reduce(
-    (total, purchase) => total + purchase.remaining_amount_cents,
+    (total, purchase) =>
+      purchase.status === "disabled"
+        ? total
+        : total + purchase.remaining_amount_cents,
     0
   )
+  const activeMonthlyExpenseCount = filteredMonthlyExpenses.filter(
+    (monthlyExpense) => !monthlyExpense.is_disabled
+  ).length
   const defaultCard = cards.find((card) => card.is_default) ?? cards[0]
 
   return {
     activePurchaseCount,
+    activeMonthlyExpenseCount,
     cards,
     defaultCard,
     filters,
+    focusBreakdown,
     focusMonth,
     focusSummary: focusSummary as MonthlySummary,
+    monthlyBreakdowns,
+    monthlyExpenses: filteredMonthlyExpenses,
     monthlySummaries,
     purchases: filteredPurchases,
     remainingAmountCents,
+    selectedMonthlyExpense,
     selectedPurchase,
     user,
   }
