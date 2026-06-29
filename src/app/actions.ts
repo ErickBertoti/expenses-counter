@@ -250,10 +250,20 @@ export async function requestPasswordResetAction(
 
   const supabase = await createClient()
   const appOrigin = await getAppOrigin()
+  const redirectTo = `${appOrigin}/auth/callback?next=/auth/update-password`
 
-  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${appOrigin}/auth/callback?next=/auth/update-password`,
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo,
   })
+
+  if (error) {
+    console.error("[auth] Password reset request failed", {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      redirectTo,
+    })
+  }
 
   return {
     status: "success",

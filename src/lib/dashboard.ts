@@ -120,7 +120,7 @@ export async function getDashboardData(
   const monthlyExpensesWithCard = monthlyExpenseRecords.map((monthlyExpense) =>
     buildMonthlyExpenseWithCard(
       monthlyExpense,
-      cardNameById.get(monthlyExpense.card_id) ?? "CartÃ£o"
+      cardNameById.get(monthlyExpense.card_id) ?? "Cartão"
     )
   )
   const filteredPurchases = sortPurchasesForDashboard(
