@@ -1,0 +1,29 @@
+{
+  "name": "Contador de Despesas",
+  "short_name": "Despesas",
+  "description": "Acompanhe compras parceladas do cartão e veja os totais de cada mês.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#170706",
+  "theme_color": "#5c1712",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
