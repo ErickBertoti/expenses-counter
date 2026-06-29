@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { MailIcon } from "lucide-react"
+import { KeyRoundIcon } from "lucide-react"
 
 import { LoginForm } from "@/components/auth/login-form"
 import { Badge } from "@/components/ui/badge"
@@ -46,8 +46,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 Contador de despesas parceladas.
               </h1>
               <p className="max-w-lg text-sm leading-6 text-primary-foreground/75 sm:text-base">
-                Entre por magic link, registre compras antigas e acompanhe o que
-                ainda falta cair nas faturas dos próximos meses.
+                Entre com email e senha, registre compras antigas e acompanhe o
+                que ainda falta cair nas faturas dos próximos meses.
               </p>
             </div>
           </div>
@@ -77,14 +77,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 </Badge>
                 <div className="flex items-center gap-3">
                   <div className="flex size-11 items-center justify-center rounded-md bg-muted text-primary">
-                    <MailIcon />
+                    <KeyRoundIcon />
                   </div>
                   <div className="min-w-0">
                     <h2 className="font-heading text-xl font-semibold">
                       Entrar na aplicação
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Receba um link seguro para abrir sua dashboard.
+                      Use sua senha ou crie uma pelo fluxo de primeiro acesso.
                     </p>
                   </div>
                 </div>

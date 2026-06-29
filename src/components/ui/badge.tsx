@@ -18,6 +18,8 @@ const badgeVariants = cva(
           "border-transparent bg-[var(--success-bg)] text-[var(--success)] [a]:hover:bg-[var(--success-bg)]",
         completed:
           "border-transparent bg-[var(--completed-bg)] text-[var(--completed-foreground)] [a]:hover:bg-[var(--completed-bg)]",
+        disabled:
+          "border-transparent bg-[var(--disabled-bg)] text-[var(--disabled-foreground)] [a]:hover:bg-[var(--disabled-bg)]",
         outline:
           "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
         ghost:

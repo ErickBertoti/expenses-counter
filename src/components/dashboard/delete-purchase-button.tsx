@@ -2,58 +2,78 @@
 
 import { startTransition, useState } from "react"
 import type { ComponentProps } from "react"
-import { Loader2Icon, Trash2Icon } from "lucide-react"
+import { Loader2Icon, PauseCircleIcon, PlayCircleIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { deletePurchase } from "@/app/actions"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Button, buttonVariants } from "@/components/ui/button"
+  setMonthlyExpenseDisabled,
+  setPurchaseDisabled,
+} from "@/app/actions"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-type DeletePurchaseButtonProps = {
-  purchaseId: string
-  description: string
+type ToggleButtonProps = {
   className?: string
+  description: string
+  disabledState: boolean
   showLabel?: boolean
   size?: ComponentProps<typeof Button>["size"]
   variant?: ComponentProps<typeof Button>["variant"]
 }
 
-export function DeletePurchaseButton({
+type PurchaseDisabledToggleButtonProps = ToggleButtonProps & {
+  purchaseId: string
+}
+
+type MonthlyExpenseDisabledToggleButtonProps = ToggleButtonProps & {
+  monthlyExpenseId: string
+}
+
+function ToggleIcon({
+  disabledState,
+  pending,
+}: {
+  disabledState: boolean
+  pending: boolean
+}) {
+  if (pending) {
+    return <Loader2Icon className="animate-spin" data-icon="inline-start" />
+  }
+
+  return disabledState ? (
+    <PlayCircleIcon data-icon="inline-start" />
+  ) : (
+    <PauseCircleIcon data-icon="inline-start" />
+  )
+}
+
+export function PurchaseDisabledToggleButton({
   purchaseId,
-  description,
   className,
+  description,
+  disabledState,
   showLabel = false,
   size = showLabel ? "sm" : "icon-sm",
   variant = "ghost",
-}: DeletePurchaseButtonProps) {
-  const [open, setOpen] = useState(false)
+}: PurchaseDisabledToggleButtonProps) {
   const [pending, setPending] = useState(false)
+  const nextDisabledState = !disabledState
+  const label = disabledState ? "Ativar" : "Desativar"
 
-  function handleDelete() {
+  function handleToggle() {
     setPending(true)
 
     startTransition(async () => {
       try {
-        await deletePurchase(purchaseId)
-        setOpen(false)
-        toast.success("Compra excluída.")
+        await setPurchaseDisabled(purchaseId, nextDisabledState)
+        toast.success(
+          nextDisabledState ? "Compra desativada." : "Compra ativada."
+        )
       } catch (error) {
         toast.error(
           error instanceof Error
             ? error.message
-            : "Não foi possível excluir a compra."
+            : "Não foi possível atualizar a compra."
         )
       } finally {
         setPending(false)
@@ -62,47 +82,67 @@ export function DeletePurchaseButton({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger
-        className={cn(buttonVariants({ variant, size }), className)}
-        aria-label={`Excluir ${description}`}
-      >
-        {showLabel ? (
-          <>
-            <Trash2Icon data-icon="inline-start" />
-            Excluir
-          </>
-        ) : (
-          <Trash2Icon />
-        )}
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogMedia>
-            <Trash2Icon />
-          </AlertDialogMedia>
-          <AlertDialogTitle>Excluir compra</AlertDialogTitle>
-          <AlertDialogDescription>
-            {`"${description}" será removida de vez. As parcelas deixam de
-            aparecer nos totais mensais imediatamente.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={pending}
-            onClick={handleDelete}
-          >
-            {pending ? (
-              <Loader2Icon data-icon="inline-start" className="animate-spin" />
-            ) : (
-              <Trash2Icon data-icon="inline-start" />
-            )}
-            Excluir compra
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <Button
+      type="button"
+      className={cn(className)}
+      variant={variant}
+      size={size}
+      disabled={pending}
+      onClick={handleToggle}
+      aria-label={`${label} ${description}`}
+    >
+      <ToggleIcon disabledState={disabledState} pending={pending} />
+      {showLabel ? label : null}
+    </Button>
+  )
+}
+
+export function MonthlyExpenseDisabledToggleButton({
+  monthlyExpenseId,
+  className,
+  description,
+  disabledState,
+  showLabel = false,
+  size = showLabel ? "sm" : "icon-sm",
+  variant = "ghost",
+}: MonthlyExpenseDisabledToggleButtonProps) {
+  const [pending, setPending] = useState(false)
+  const nextDisabledState = !disabledState
+  const label = disabledState ? "Ativar" : "Desativar"
+
+  function handleToggle() {
+    setPending(true)
+
+    startTransition(async () => {
+      try {
+        await setMonthlyExpenseDisabled(monthlyExpenseId, nextDisabledState)
+        toast.success(
+          nextDisabledState ? "Mensalidade desativada." : "Mensalidade ativada."
+        )
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível atualizar a mensalidade."
+        )
+      } finally {
+        setPending(false)
+      }
+    })
+  }
+
+  return (
+    <Button
+      type="button"
+      className={cn(className)}
+      variant={variant}
+      size={size}
+      disabled={pending}
+      onClick={handleToggle}
+      aria-label={`${label} ${description}`}
+    >
+      <ToggleIcon disabledState={disabledState} pending={pending} />
+      {showLabel ? label : null}
+    </Button>
   )
 }

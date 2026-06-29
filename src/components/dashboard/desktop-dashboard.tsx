@@ -1,12 +1,18 @@
 import Link from "next/link"
 import {
+  CalendarClockIcon,
   CalendarRangeIcon,
   PencilLineIcon,
   SearchXIcon,
 } from "lucide-react"
 
 import { signOut } from "@/app/actions"
-import { DeletePurchaseButton } from "@/components/dashboard/delete-purchase-button"
+import {
+  MonthlyExpenseDisabledToggleButton,
+  PurchaseDisabledToggleButton,
+} from "@/components/dashboard/delete-purchase-button"
+import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
+import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
@@ -41,14 +47,16 @@ import {
   formatDateLabel,
   formatMonthLabel,
   getInstallmentAmountForMonth,
+  getMonthlyExpensePeriodLabel,
 } from "@/lib/purchases"
-import type { PurchaseFormValues } from "@/lib/types"
+import type { MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type DesktopDashboardProps = {
   dashboard: DashboardData
   focusColumnLabel: string
   formValues: PurchaseFormValues
+  monthlyExpenseFormValues: MonthlyExpenseFormValues
   returnTo: string
 }
 
@@ -78,6 +86,7 @@ export function DesktopDashboard({
   dashboard,
   focusColumnLabel,
   formValues,
+  monthlyExpenseFormValues,
   returnTo,
 }: DesktopDashboardProps) {
   return (
@@ -131,13 +140,13 @@ export function DesktopDashboard({
                   terminou.
                 </p>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryMetric
                   label="Total do mês"
                   value={formatCurrencyFromCents(
                     dashboard.focusSummary.total_amount_cents
                   )}
-                  helper={`${dashboard.focusSummary.installment_count} parcelas previstas`}
+                  helper={`${dashboard.focusSummary.item_count} itens previstos`}
                 />
                 <SummaryMetric
                   label="Compras ativas"
@@ -149,8 +158,18 @@ export function DesktopDashboard({
                   value={formatCurrencyFromCents(dashboard.remainingAmountCents)}
                   helper="Quanto ainda falta completar nas compras filtradas."
                 />
+                <SummaryMetric
+                  label="Mensalidades"
+                  value={String(dashboard.activeMonthlyExpenseCount)}
+                  helper="Custos recorrentes habilitados nos filtros."
+                />
               </div>
             </section>
+
+            <MonthlyAnalytics
+              breakdown={dashboard.focusBreakdown}
+              summaries={dashboard.monthlySummaries}
+            />
 
             <section className="rounded-lg border border-border bg-card p-5">
               <PurchaseFilters
@@ -273,8 +292,9 @@ export function DesktopDashboard({
                                 <PencilLineIcon data-icon="inline-start" />
                                 Editar
                               </Link>
-                              <DeletePurchaseButton
+                              <PurchaseDisabledToggleButton
                                 description={purchase.description}
+                                disabledState={purchase.status === "disabled"}
                                 purchaseId={purchase.id}
                                 variant="outline"
                                 showLabel
@@ -371,8 +391,9 @@ export function DesktopDashboard({
                                       <PencilLineIcon data-icon="inline-start" />
                                       Editar
                                     </Link>
-                                    <DeletePurchaseButton
+                                    <PurchaseDisabledToggleButton
                                       description={purchase.description}
+                                      disabledState={purchase.status === "disabled"}
                                       purchaseId={purchase.id}
                                     />
                                   </div>
@@ -384,6 +405,116 @@ export function DesktopDashboard({
                       </Table>
                     </div>
                   </>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="py-0">
+              <CardHeader className="border-b py-5">
+                <div className="flex flex-col gap-1">
+                  <CardTitle>Mensalidades</CardTitle>
+                  <CardDescription>
+                    Custos que entram automaticamente em todos os meses do
+                    período configurado.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="py-5">
+                {dashboard.monthlyExpenses.length === 0 ? (
+                  <Empty className="rounded-md border border-dashed border-border bg-muted">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <CalendarClockIcon />
+                      </EmptyMedia>
+                      <EmptyTitle>Nenhuma mensalidade encontrada</EmptyTitle>
+                      <EmptyDescription>
+                        Cadastre academia, assinatura, plano ou outro custo
+                        recorrente no painel lateral.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mensalidade</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Período</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dashboard.monthlyExpenses.map((monthlyExpense) => {
+                        const editHref = buildReturnToPath(
+                          {
+                            ...dashboard.filters,
+                            view: "monthly",
+                          },
+                          {
+                            editMonthly: monthlyExpense.id,
+                          }
+                        )
+
+                        return (
+                          <TableRow key={monthlyExpense.id}>
+                            <TableCell className="min-w-72">
+                              <div className="flex flex-col gap-2">
+                                <div className="font-medium">
+                                  {monthlyExpense.description}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                  <Badge variant="outline">
+                                    {monthlyExpense.card_name}
+                                  </Badge>
+                                  {monthlyExpense.notes ? (
+                                    <span>{monthlyExpense.notes}</span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                              {formatCurrencyFromCents(monthlyExpense.amount_cents)}
+                            </TableCell>
+                            <TableCell>
+                              {getMonthlyExpensePeriodLabel(monthlyExpense)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  monthlyExpense.is_disabled ? "disabled" : "active"
+                                }
+                              >
+                                <span className="size-1.5 rounded-full bg-current opacity-70" />
+                                {monthlyExpense.is_disabled ? "Desativada" : "Ativa"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-2">
+                                <Link
+                                  href={editHref}
+                                  className={cn(
+                                    buttonVariants({
+                                      variant: "outline",
+                                      size: "sm",
+                                    })
+                                  )}
+                                >
+                                  <PencilLineIcon data-icon="inline-start" />
+                                  Editar
+                                </Link>
+                                <MonthlyExpenseDisabledToggleButton
+                                  description={monthlyExpense.description}
+                                  disabledState={monthlyExpense.is_disabled}
+                                  monthlyExpenseId={monthlyExpense.id}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>
@@ -429,8 +560,8 @@ export function DesktopDashboard({
                                   {summary.month_label}
                                 </h3>
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                  {summary.purchase_count} compras e{" "}
-                                  {summary.installment_count} parcelas
+                                  {summary.installment_count} parcelas e{" "}
+                                  {summary.monthly_expense_count} mensais
                                 </p>
                               </div>
                               {isFocusMonth ? (
@@ -453,6 +584,12 @@ export function DesktopDashboard({
                                 </dd>
                               </div>
                               <div className="flex items-center justify-between gap-3">
+                                <dt className="text-muted-foreground">Mensais</dt>
+                                <dd className="tabular-nums">
+                                  {summary.monthly_expense_count}
+                                </dd>
+                              </div>
+                              <div className="flex items-center justify-between gap-3">
                                 <dt className="text-muted-foreground">Parcelas</dt>
                                 <dd className="tabular-nums">
                                   {summary.installment_count}
@@ -470,8 +607,9 @@ export function DesktopDashboard({
                           <TableRow>
                             <TableHead>Mês</TableHead>
                             <TableHead>Total</TableHead>
-                            <TableHead>Compras</TableHead>
                             <TableHead>Parcelas</TableHead>
+                            <TableHead>Mensais</TableHead>
+                            <TableHead>Itens</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -494,10 +632,17 @@ export function DesktopDashboard({
                                   )}
                                 </TableCell>
                                 <TableCell className="tabular-nums">
-                                  {summary.purchase_count}
+                                  {formatCurrencyFromCents(
+                                    summary.installment_total_cents
+                                  )}
                                 </TableCell>
                                 <TableCell className="tabular-nums">
-                                  {summary.installment_count}
+                                  {formatCurrencyFromCents(
+                                    summary.monthly_total_cents
+                                  )}
+                                </TableCell>
+                                <TableCell className="tabular-nums">
+                                  {summary.item_count}
                                 </TableCell>
                               </TableRow>
                             )
@@ -511,13 +656,21 @@ export function DesktopDashboard({
             </Card>
           </div>
 
-          <aside className="order-1 min-w-0 xl:sticky xl:top-6 xl:order-2 xl:self-start">
+          <aside className="order-1 flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:order-2 xl:self-start">
             <PurchaseForm
               key={dashboard.selectedPurchase?.id ?? "new"}
               cards={dashboard.cards}
               idPrefix="desktop-purchase"
               initialValues={formValues}
               isEditing={Boolean(dashboard.selectedPurchase)}
+              returnTo={returnTo}
+            />
+            <MonthlyExpenseForm
+              key={dashboard.selectedMonthlyExpense?.id ?? "new-monthly"}
+              cards={dashboard.cards}
+              idPrefix="desktop-monthly"
+              initialValues={monthlyExpenseFormValues}
+              isEditing={Boolean(dashboard.selectedMonthlyExpense)}
               returnTo={returnTo}
             />
           </aside>

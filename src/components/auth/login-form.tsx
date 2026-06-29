@@ -1,9 +1,12 @@
 "use client"
 
 import { useActionState } from "react"
-import { Loader2Icon, MailIcon } from "lucide-react"
+import { KeyRoundIcon, Loader2Icon, LogInIcon } from "lucide-react"
 
-import { requestMagicLink } from "@/app/actions"
+import {
+  requestPasswordResetAction,
+  signInWithPasswordAction,
+} from "@/app/actions"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -24,18 +27,40 @@ type LoginFormProps = {
   errorMessage?: string
 }
 
+function FieldError({ message }: { message?: string }) {
+  if (!message) {
+    return null
+  }
+
+  return <p className="text-sm text-destructive">{message}</p>
+}
+
 export function LoginForm({ errorMessage }: LoginFormProps) {
-  const [state, formAction, pending] = useActionState(
-    requestMagicLink,
+  const [loginState, loginAction, loginPending] = useActionState(
+    signInWithPasswordAction,
     initialState
   )
-  const message = state.message ?? errorMessage
-  const isSuccess = state.status === "success"
+  const [resetState, resetAction, resetPending] = useActionState(
+    requestPasswordResetAction,
+    initialState
+  )
+  const message = resetState.message ?? loginState.message ?? errorMessage
+  const isSuccess = resetState.status === "success"
+  const pending = loginPending || resetPending
+  const emailError =
+    resetState.fieldErrors?.email ?? loginState.fieldErrors?.email
+  const passwordError = loginState.fieldErrors?.password
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={loginAction} className="flex flex-col gap-5">
       <FieldGroup>
-        <Field data-invalid={state.status === "error" || undefined}>
+        <Field
+          data-invalid={
+            Boolean(emailError) ||
+            (!emailError && loginState.status === "error") ||
+            undefined
+          }
+        >
           <FieldLabel htmlFor="email">Seu email</FieldLabel>
           <FieldContent>
             <Input
@@ -44,12 +69,29 @@ export function LoginForm({ errorMessage }: LoginFormProps) {
               type="email"
               placeholder="voce@exemplo.com"
               autoComplete="email"
-              aria-invalid={state.status === "error" || undefined}
+              aria-invalid={Boolean(emailError) || undefined}
+              required
+            />
+            <FieldError message={emailError} />
+          </FieldContent>
+        </Field>
+
+        <Field data-invalid={Boolean(passwordError) || undefined}>
+          <FieldLabel htmlFor="password">Senha</FieldLabel>
+          <FieldContent>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Sua senha"
+              autoComplete="current-password"
+              aria-invalid={Boolean(passwordError) || undefined}
               required
             />
             <FieldDescription>
-              Você recebe um magic link e entra sem senha fixa.
+              No primeiro acesso, use o link abaixo para criar sua senha.
             </FieldDescription>
+            <FieldError message={passwordError} />
           </FieldContent>
         </Field>
       </FieldGroup>
@@ -67,14 +109,31 @@ export function LoginForm({ errorMessage }: LoginFormProps) {
         </div>
       ) : null}
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
-        ) : (
-          <MailIcon data-icon="inline-start" />
-        )}
-        Enviar link de acesso
-      </Button>
+      <div className="flex flex-col gap-3">
+        <Button type="submit" size="lg" disabled={pending}>
+          {loginPending ? (
+            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <LogInIcon data-icon="inline-start" />
+          )}
+          Entrar
+        </Button>
+        <Button
+          type="submit"
+          variant="outline"
+          size="lg"
+          disabled={pending}
+          formAction={resetAction}
+          formNoValidate
+        >
+          {resetPending ? (
+            <Loader2Icon data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <KeyRoundIcon data-icon="inline-start" />
+          )}
+          Primeiro acesso ou esqueci minha senha
+        </Button>
+      </div>
     </form>
   )
 }

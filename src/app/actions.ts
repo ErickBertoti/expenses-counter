@@ -13,7 +13,10 @@ import {
   sanitizeRedirectPath,
 } from "@/lib/purchases"
 import type {
+  AuthFormField,
   AuthFormState,
+  MonthlyExpenseFormField,
+  MonthlyExpenseFormState,
   PurchaseFormField,
   PurchaseFormState,
 } from "@/lib/types"
@@ -26,43 +29,59 @@ const INITIAL_AUTH_FORM_STATE: AuthFormState = {
   status: "idle",
 }
 
+const INITIAL_MONTHLY_EXPENSE_FORM_STATE: MonthlyExpenseFormState = {
+  status: "idle",
+}
+
+const signInFormSchema = z.object({
+  email: z.string().trim().email("Digite um email valido."),
+  password: z
+    .string()
+    .min(1, "Digite sua senha.")
+    .min(8, "A senha deve ter pelo menos 8 caracteres."),
+})
+
+const passwordResetFormSchema = z.object({
+  email: z.string().trim().email("Digite um email valido."),
+})
+
 const purchaseFormSchema = z
   .object({
     purchaseId: z.string().trim().optional(),
     description: z
       .string()
       .trim()
-      .min(1, "Informe uma descrição.")
-      .max(160, "Use até 160 caracteres."),
+      .min(1, "Informe uma descricao.")
+      .max(160, "Use ate 160 caracteres."),
     purchaseDate: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data de compra válida."),
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data de compra valida."),
     firstInstallmentMonth: z
       .string()
-      .regex(/^\d{4}-\d{2}$/, "Informe o mês inicial da primeira parcela."),
+      .regex(/^\d{4}-\d{2}$/, "Informe o mes inicial da primeira parcela."),
     installmentCount: z.coerce
       .number()
-      .int("Use um número inteiro de parcelas.")
-      .min(1, "O número de parcelas deve ser maior que zero.")
-      .max(120, "Use no máximo 120 parcelas."),
+      .int("Use um numero inteiro de parcelas.")
+      .min(1, "O numero de parcelas deve ser maior que zero.")
+      .max(120, "Use no maximo 120 parcelas."),
     totalAmount: z.string().transform((value, context) => {
       const cents = parseCurrencyInputToCents(value)
 
       if (cents === null || cents <= 0) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Informe um valor total válido.",
+          message: "Informe um valor total valido.",
         })
         return z.NEVER
       }
 
       return cents
     }),
-    cardId: z.string().trim().min(1, "Selecione um cartão."),
+    cardId: z.string().trim().min(1, "Selecione um cartao."),
     notes: z
       .string()
       .trim()
-      .max(500, "Use até 500 caracteres nas observações.")
+      .max(500, "Use ate 500 caracteres nas observacoes.")
       .optional()
       .default(""),
     redirectTo: z.string().trim().optional(),
@@ -72,18 +91,97 @@ const purchaseFormSchema = z
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["firstInstallmentMonth"],
-        message: "O mês da primeira parcela não pode ser anterior ao mês da compra.",
+        message: "O mes da primeira parcela nao pode ser anterior ao mes da compra.",
       })
     }
   })
 
-function mapZodIssuesToFieldErrors(error: z.ZodError) {
+const monthlyExpenseFormSchema = z
+  .object({
+    monthlyExpenseId: z.string().trim().optional(),
+    description: z
+      .string()
+      .trim()
+      .min(1, "Informe uma descricao.")
+      .max(160, "Use ate 160 caracteres."),
+    amount: z.string().transform((value, context) => {
+      const cents = parseCurrencyInputToCents(value)
+
+      if (cents === null || cents <= 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Informe um valor mensal valido.",
+        })
+        return z.NEVER
+      }
+
+      return cents
+    }),
+    cardId: z.string().trim().min(1, "Selecione um cartao."),
+    startMonth: z
+      .string()
+      .regex(/^\d{4}-\d{2}$/, "Informe o mes inicial."),
+    endMonth: z.string().trim().optional().default(""),
+    notes: z
+      .string()
+      .trim()
+      .max(500, "Use ate 500 caracteres nas observacoes.")
+      .optional()
+      .default(""),
+    redirectTo: z.string().trim().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.endMonth && !/^\d{4}-\d{2}$/.test(value.endMonth)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endMonth"],
+        message: "Informe um mes final valido.",
+      })
+      return
+    }
+
+    if (value.endMonth && value.endMonth < value.startMonth) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endMonth"],
+        message: "O mes final nao pode ser anterior ao mes inicial.",
+      })
+    }
+  })
+
+function mapZodIssuesToPurchaseFieldErrors(error: z.ZodError) {
   const fieldErrors: Partial<Record<PurchaseFormField, string>> = {}
 
   for (const issue of error.issues) {
     const field = issue.path[0]
     if (typeof field === "string" && !(field in fieldErrors)) {
       fieldErrors[field as PurchaseFormField] = issue.message
+    }
+  }
+
+  return fieldErrors
+}
+
+function mapZodIssuesToMonthlyExpenseFieldErrors(error: z.ZodError) {
+  const fieldErrors: Partial<Record<MonthlyExpenseFormField, string>> = {}
+
+  for (const issue of error.issues) {
+    const field = issue.path[0]
+    if (typeof field === "string" && !(field in fieldErrors)) {
+      fieldErrors[field as MonthlyExpenseFormField] = issue.message
+    }
+  }
+
+  return fieldErrors
+}
+
+function mapZodIssuesToAuthFieldErrors(error: z.ZodError) {
+  const fieldErrors: Partial<Record<AuthFormField, string>> = {}
+
+  for (const issue of error.issues) {
+    const field = issue.path[0]
+    if (typeof field === "string" && !(field in fieldErrors)) {
+      fieldErrors[field as AuthFormField] = issue.message
     }
   }
 
@@ -99,39 +197,68 @@ async function getAppOrigin() {
   })
 }
 
-export async function requestMagicLink(
+export async function signInWithPasswordAction(
   previousState: AuthFormState = INITIAL_AUTH_FORM_STATE,
   formData: FormData
 ): Promise<AuthFormState> {
   void previousState
-  const email = z.string().email("Digite um email válido.").safeParse(formData.get("email"))
+  const parsed = signInFormSchema.safeParse({
+    email: formData.get("email")?.toString(),
+    password: formData.get("password")?.toString(),
+  })
 
-  if (!email.success) {
+  if (!parsed.success) {
     return {
       status: "error",
-      message: email.error.issues[0]?.message ?? "Digite um email válido.",
+      message: "Revise os dados de acesso.",
+      fieldErrors: mapZodIssuesToAuthFieldErrors(parsed.error),
     }
   }
 
   const supabase = await createClient()
-  const appOrigin = await getAppOrigin()
-  const { error } = await supabase.auth.signInWithOtp({
-    email: email.data,
-    options: {
-      emailRedirectTo: `${appOrigin}/auth/callback`,
-    },
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
   })
 
   if (error) {
     return {
       status: "error",
-      message: "Não foi possível enviar o link agora. Confira o email e tente novamente.",
+      message: "Email ou senha invalidos.",
     }
   }
 
+  redirect("/")
+}
+
+export async function requestPasswordResetAction(
+  previousState: AuthFormState = INITIAL_AUTH_FORM_STATE,
+  formData: FormData
+): Promise<AuthFormState> {
+  void previousState
+  const parsed = passwordResetFormSchema.safeParse({
+    email: formData.get("email")?.toString(),
+  })
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Informe um email valido para receber o link.",
+      fieldErrors: mapZodIssuesToAuthFieldErrors(parsed.error),
+    }
+  }
+
+  const supabase = await createClient()
+  const appOrigin = await getAppOrigin()
+
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${appOrigin}/auth/callback?next=/auth/update-password`,
+  })
+
   return {
     status: "success",
-    message: "Link enviado. Abra o email e volte para concluir o login.",
+    message:
+      "Se o email estiver cadastrado, voce recebera um link para criar ou redefinir sua senha.",
   }
 }
 
@@ -148,7 +275,7 @@ export async function savePurchase(
   if (!user) {
     return {
       status: "error",
-      message: "Sua sessão expirou. Entre novamente.",
+      message: "Sua sessao expirou. Entre novamente.",
     }
   }
 
@@ -168,7 +295,7 @@ export async function savePurchase(
     return {
       status: "error",
       message: "Revise os campos destacados antes de salvar.",
-      fieldErrors: mapZodIssuesToFieldErrors(parsed.error),
+      fieldErrors: mapZodIssuesToPurchaseFieldErrors(parsed.error),
     }
   }
 
@@ -184,9 +311,9 @@ export async function savePurchase(
   if (cardError || !card) {
     return {
       status: "error",
-      message: "Selecione um cartão válido.",
+      message: "Selecione um cartao valido.",
       fieldErrors: {
-        cardId: "Selecione um cartão válido.",
+        cardId: "Selecione um cartao valido.",
       },
     }
   }
@@ -211,7 +338,7 @@ export async function savePurchase(
     if (error) {
       return {
         status: "error",
-        message: "Não foi possível atualizar a compra agora.",
+        message: "Nao foi possivel atualizar a compra agora.",
       }
     }
   } else {
@@ -223,7 +350,7 @@ export async function savePurchase(
     if (error) {
       return {
         status: "error",
-        message: "Não foi possível registrar a compra agora.",
+        message: "Nao foi possivel registrar a compra agora.",
       }
     }
   }
@@ -232,24 +359,158 @@ export async function savePurchase(
   redirect(sanitizeRedirectPath(redirectTo))
 }
 
-export async function deletePurchase(purchaseId: string) {
+export async function saveMonthlyExpense(
+  previousState: MonthlyExpenseFormState = INITIAL_MONTHLY_EXPENSE_FORM_STATE,
+  formData: FormData
+): Promise<MonthlyExpenseFormState> {
+  void previousState
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    throw new Error("Sua sessão expirou.")
+    return {
+      status: "error",
+      message: "Sua sessao expirou. Entre novamente.",
+    }
+  }
+
+  const parsed = monthlyExpenseFormSchema.safeParse({
+    monthlyExpenseId: formData.get("monthlyExpenseId")?.toString(),
+    description: formData.get("description")?.toString(),
+    amount: formData.get("amount")?.toString(),
+    cardId: formData.get("cardId")?.toString(),
+    startMonth: formData.get("startMonth")?.toString(),
+    endMonth: formData.get("endMonth")?.toString(),
+    notes: formData.get("notes")?.toString(),
+    redirectTo: formData.get("redirectTo")?.toString(),
+  })
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Revise os campos destacados antes de salvar.",
+      fieldErrors: mapZodIssuesToMonthlyExpenseFieldErrors(parsed.error),
+    }
+  }
+
+  const { monthlyExpenseId, redirectTo, ...monthlyExpense } = parsed.data
+
+  const { data: card, error: cardError } = await supabase
+    .from("cards")
+    .select("id")
+    .eq("id", monthlyExpense.cardId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (cardError || !card) {
+    return {
+      status: "error",
+      message: "Selecione um cartao valido.",
+      fieldErrors: {
+        cardId: "Selecione um cartao valido.",
+      },
+    }
+  }
+
+  const payload = {
+    card_id: monthlyExpense.cardId,
+    description: monthlyExpense.description,
+    amount_cents: monthlyExpense.amount,
+    start_month: `${monthlyExpense.startMonth}-01`,
+    end_month: monthlyExpense.endMonth ? `${monthlyExpense.endMonth}-01` : null,
+    notes: monthlyExpense.notes || null,
+  }
+
+  if (monthlyExpenseId) {
+    const { error } = await supabase
+      .from("monthly_expenses")
+      .update(payload)
+      .eq("id", monthlyExpenseId)
+      .eq("user_id", user.id)
+
+    if (error) {
+      return {
+        status: "error",
+        message: "Nao foi possivel atualizar a mensalidade agora.",
+      }
+    }
+  } else {
+    const { error } = await supabase.from("monthly_expenses").insert({
+      ...payload,
+      user_id: user.id,
+    })
+
+    if (error) {
+      return {
+        status: "error",
+        message: "Nao foi possivel registrar a mensalidade agora.",
+      }
+    }
+  }
+
+  revalidatePath("/", "page")
+  redirect(sanitizeRedirectPath(redirectTo))
+}
+
+export async function setPurchaseDisabled(purchaseId: string, disabled: boolean) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Sua sessao expirou.")
   }
 
   const { error } = await supabase
     .from("purchases")
-    .delete()
+    .update({
+      is_disabled: disabled,
+    })
     .eq("id", purchaseId)
     .eq("user_id", user.id)
 
   if (error) {
-    throw new Error("Não foi possível excluir a compra.")
+    throw new Error(
+      disabled
+        ? "Nao foi possivel desativar a compra."
+        : "Nao foi possivel ativar a compra."
+    )
+  }
+
+  revalidatePath("/", "page")
+  refresh()
+}
+
+export async function setMonthlyExpenseDisabled(
+  monthlyExpenseId: string,
+  disabled: boolean
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    throw new Error("Sua sessao expirou.")
+  }
+
+  const { error } = await supabase
+    .from("monthly_expenses")
+    .update({
+      is_disabled: disabled,
+    })
+    .eq("id", monthlyExpenseId)
+    .eq("user_id", user.id)
+
+  if (error) {
+    throw new Error(
+      disabled
+        ? "Nao foi possivel desativar a mensalidade."
+        : "Nao foi possivel ativar a mensalidade."
+    )
   }
 
   revalidatePath("/", "page")

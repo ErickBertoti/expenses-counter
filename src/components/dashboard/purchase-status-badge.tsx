@@ -6,12 +6,17 @@ export function PurchaseStatusBadge({
 }: {
   status: PurchaseWithProgress["status"]
 }) {
-  const variant = status === "active" ? "active" : "completed"
+  const variant =
+    status === "active" ? "active" : status === "disabled" ? "disabled" : "completed"
 
   return (
     <Badge variant={variant}>
       <span className="size-1.5 rounded-full bg-current opacity-70" />
-      {status === "active" ? "Em andamento" : "Concluída"}
+      {status === "active"
+        ? "Em andamento"
+        : status === "disabled"
+          ? "Desativada"
+          : "Concluída"}
     </Badge>
   )
 }
