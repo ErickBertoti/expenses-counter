@@ -10,7 +10,10 @@ export async function GET(request: Request) {
 
   if (!code) {
     return NextResponse.redirect(
-      new URL("/auth/login?error=Link%20de%20login%20inv%C3%A1lido.", requestUrl.origin)
+      new URL(
+        "/auth/login?error=Link%20de%20acesso%20ou%20recupera%C3%A7%C3%A3o%20inv%C3%A1lido.",
+        requestUrl.origin
+      )
     )
   }
 
@@ -19,7 +22,10 @@ export async function GET(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL("/auth/login?error=N%C3%A3o%20foi%20poss%C3%ADvel%20concluir%20o%20login.", requestUrl.origin)
+      new URL(
+        "/auth/login?error=N%C3%A3o%20foi%20poss%C3%ADvel%20concluir%20o%20acesso.",
+        requestUrl.origin
+      )
     )
   }
 
