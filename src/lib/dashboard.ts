@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/server"
+import { buildMonthlyExportModel } from "@/lib/monthly-export"
 import {
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
@@ -144,8 +145,9 @@ export async function getDashboardData(
     monthlyExpenseRecords.find(
       (monthlyExpense) => monthlyExpense.id === filters.monthlyEditId
     ) ?? null
+  const focusMonth = filters.month || currentMonth
   const monthlyBreakdowns = buildMonthlyBreakdowns({
-    focusMonth: filters.month || currentMonth,
+    focusMonth,
     monthlyExpenses: summaryMonthlyExpenses,
     purchases: summaryPurchases,
     referenceMonthKey: currentMonth,
@@ -154,17 +156,30 @@ export async function getDashboardData(
     summaryPurchases,
     summaryMonthlyExpenses,
     {
-      focusMonth: filters.month || currentMonth,
+      focusMonth,
       referenceMonthKey: currentMonth,
     }
   )
-  const focusMonth = filters.month || currentMonth
   const focusSummary =
     monthlySummaries.find((summary) => summary.month === focusMonth) ??
     emptyMonthlySummary(focusMonth)
   const focusBreakdown =
     monthlyBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
     emptyMonthlyBreakdown(focusMonth)
+  const exportBreakdowns = buildMonthlyBreakdowns({
+    focusMonth,
+    monthlyExpenses: monthlyExpensesWithCard,
+    purchases: purchasesWithProgress,
+    referenceMonthKey: currentMonth,
+  })
+  const focusExportBreakdown =
+    exportBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
+    emptyMonthlyBreakdown(focusMonth)
+  const monthlyExport = buildMonthlyExportModel({
+    breakdown: focusExportBreakdown,
+    monthlyExpenses: monthlyExpensesWithCard,
+    purchases: purchasesWithProgress,
+  })
   const activePurchaseCount = filteredPurchases.filter(
     (purchase) => purchase.status === "active"
   ).length
@@ -189,6 +204,7 @@ export async function getDashboardData(
     focusBreakdown,
     focusMonth,
     focusSummary: focusSummary as MonthlySummary,
+    monthlyExport,
     monthlyBreakdowns,
     monthlyExpenses: filteredMonthlyExpenses,
     monthlySummaries,
