@@ -591,7 +591,7 @@ export function getMonthlyExpensePeriodLabel(
     return `Desde ${start}`
   }
 
-  return `${start} ate ${formatMonthLabel(normalizeMonthValue(monthlyExpense.end_month))}`
+  return `${start} até ${formatMonthLabel(normalizeMonthValue(monthlyExpense.end_month))}`
 }
 
 export function getSourceSplitPercentages(breakdown: MonthlyBreakdown) {

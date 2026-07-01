@@ -12,6 +12,7 @@ import {
   PurchaseDisabledToggleButton,
 } from "@/components/dashboard/delete-purchase-button"
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
+import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
 import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
@@ -170,6 +171,8 @@ export function DesktopDashboard({
               breakdown={dashboard.focusBreakdown}
               summaries={dashboard.monthlySummaries}
             />
+
+            <MonthlyExportPanel model={dashboard.monthlyExport} />
 
             <section className="rounded-lg border border-border bg-card p-5">
               <PurchaseFilters

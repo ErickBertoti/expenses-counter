@@ -122,6 +122,48 @@ export type MonthlySummary = {
   monthly_expense_count: number
 }
 
+export type MonthlyExportCardSummary = {
+  card_id: string
+  card_name: string
+  total_amount_cents: number
+  item_count: number
+}
+
+export type MonthlyExportPurchaseItem = {
+  id: string
+  description: string
+  card_name: string
+  installment_index: number
+  installment_count: number
+  installment_amount_cents: number
+  total_amount_cents: number
+  notes: string | null
+}
+
+export type MonthlyExportExpenseItem = {
+  id: string
+  description: string
+  card_name: string
+  amount_cents: number
+  period_label: string
+  notes: string | null
+}
+
+export type MonthlyExportModel = {
+  month: string
+  month_label: string
+  total_amount_cents: number
+  installment_total_cents: number
+  monthly_total_cents: number
+  item_count: number
+  purchase_count: number
+  installment_count: number
+  monthly_expense_count: number
+  by_card: MonthlyExportCardSummary[]
+  purchases: MonthlyExportPurchaseItem[]
+  monthly_expenses: MonthlyExportExpenseItem[]
+}
+
 export type DashboardFilters = {
   query: string
   status: "all" | PurchaseStatus

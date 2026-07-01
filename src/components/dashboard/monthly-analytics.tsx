@@ -1,11 +1,21 @@
+"use client"
+
 import type { ReactNode } from "react"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import { Badge } from "@/components/ui/badge"
 import {
   formatCurrencyFromCents,
   getLineItemSourceLabel,
-  getMonthlyTrendMax,
-  getProgressPercentage,
   getSourceSplitPercentages,
 } from "@/lib/purchases"
 import type { MonthlyBreakdown, MonthlySummary } from "@/lib/types"
@@ -15,36 +25,94 @@ type MonthlyAnalyticsProps = {
   summaries: MonthlySummary[]
 }
 
+type TooltipPayload = {
+  color?: string
+  dataKey?: string
+  name?: string
+  payload?: Record<string, unknown>
+  value?: number | string
+}
+
+type TooltipContentProps = {
+  active?: boolean
+  label?: string | number
+  payload?: TooltipPayload[]
+}
+
+function formatChartValue(value: number | string | undefined) {
+  return formatCurrencyFromCents(Number(value ?? 0))
+}
+
+function ChartTooltip({ active, label, payload }: TooltipContentProps) {
+  if (!active || !payload?.length) {
+    return null
+  }
+
+  const payloadLabel = payload[0]?.payload?.monthLabel
+  const title =
+    typeof payloadLabel === "string" ? payloadLabel : String(label ?? "Resumo")
+
+  return (
+    <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-lg">
+      <div className="mb-2 font-medium text-popover-foreground">{title}</div>
+      <div className="flex flex-col gap-1">
+        {payload.map((entry) => (
+          <div
+            key={`${entry.dataKey ?? entry.name}-${entry.value}`}
+            className="flex items-center justify-between gap-4"
+          >
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="size-2 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.name ?? entry.dataKey}
+            </span>
+            <span className="font-medium tabular-nums text-popover-foreground">
+              {formatChartValue(entry.value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ChartPanel({
   ariaLabel,
+  caption,
   children,
   eyebrow,
   title,
   trailing,
 }: {
   ariaLabel: string
+  caption: string
   children: ReactNode
   eyebrow: string
   title: string
   trailing?: ReactNode
 }) {
   return (
-    <div
+    <figure
       aria-label={ariaLabel}
       className="rounded-lg border border-border bg-card p-4"
-      role="group"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <figcaption className="min-w-0">
           <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
             {eyebrow}
           </div>
           <h3 className="mt-2 font-heading text-lg font-semibold">{title}</h3>
-        </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {caption}
+          </p>
+        </figcaption>
         {trailing}
       </div>
       {children}
-    </div>
+    </figure>
   )
 }
 
@@ -60,12 +128,31 @@ function ChartLegendDot({ className }: { className: string }) {
   return <span aria-hidden="true" className={`size-2.5 rounded-full ${className}`} />
 }
 
+function currencyLabel(value: unknown) {
+  return formatCurrencyFromCents(Number(value))
+}
+
 export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps) {
   const split = getSourceSplitPercentages(breakdown)
   const trendItems = summaries
     .slice(0, 6)
     .toSorted((left, right) => left.month.localeCompare(right.month))
-  const trendMax = getMonthlyTrendMax(trendItems)
+  const sourceSplitData = [
+    {
+      installments: breakdown.installment_total_cents,
+      monthly: breakdown.monthly_total_cents,
+      name: breakdown.month_label,
+    },
+  ]
+  const cardData = breakdown.by_card.map((card) => ({
+    name: card.card_name,
+    total: card.total_amount_cents,
+  }))
+  const trendData = trendItems.map((summary) => ({
+    month: summary.month.slice(5),
+    monthLabel: summary.month_label,
+    total: summary.total_amount_cents,
+  }))
   const summaryLabel = `${breakdown.month_label}: ${formatCurrencyFromCents(
     breakdown.total_amount_cents
   )} em ${breakdown.item_count} itens, com ${formatCurrencyFromCents(
@@ -100,6 +187,7 @@ export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps
 
       <ChartPanel
         ariaLabel={`Divisão do mês entre parcelas e mensalidades. ${summaryLabel}`}
+        caption="Mostra quanto do total vem de compras parceladas e quanto vem de mensalidades."
         eyebrow="Gráfico do mês"
         title="Parceladas x mensais"
         trailing={<Badge variant="outline">{breakdown.item_count} itens</Badge>}
@@ -110,22 +198,40 @@ export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps
           </div>
         ) : (
           <>
-            <div
-              aria-hidden="true"
-              className="mt-5 h-6 overflow-hidden rounded-md bg-muted ring-1 ring-border"
-            >
-              <div className="flex h-full">
-                <div
-                  className="bg-[var(--chart-1)]"
-                  style={{ width: `${split.installments}%` }}
-                />
-                <div
-                  className="bg-[var(--chart-2)]"
-                  style={{ width: `${split.monthly}%` }}
-                />
-              </div>
+            <div className="mt-4 h-28" aria-hidden="true">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={sourceSplitData}
+                  layout="vertical"
+                  margin={{ bottom: 16, left: 0, right: 0, top: 16 }}
+                >
+                  <XAxis
+                    type="number"
+                    hide
+                    domain={[0, breakdown.total_amount_cents]}
+                  />
+                  <YAxis type="category" dataKey="name" hide />
+                  <Tooltip content={<ChartTooltip />} cursor={false} />
+                  <Bar
+                    dataKey="installments"
+                    fill="var(--chart-1)"
+                    isAnimationActive={false}
+                    name="Parceladas"
+                    radius={[6, 0, 0, 6]}
+                    stackId="month"
+                  />
+                  <Bar
+                    dataKey="monthly"
+                    fill="var(--chart-2)"
+                    isAnimationActive={false}
+                    name="Mensais"
+                    radius={[0, 6, 6, 0]}
+                    stackId="month"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border border-border bg-muted p-3">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <ChartLegendDot className="bg-[var(--chart-1)]" />
@@ -157,6 +263,7 @@ export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps
 
       <ChartPanel
         ariaLabel={`Total do mês por cartão em ${breakdown.month_label}`}
+        caption="Compara os cartões que compõem o mês em foco."
         eyebrow="Por cartão"
         title="Origem do mês"
         trailing={
@@ -165,43 +272,60 @@ export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps
           </Badge>
         }
       >
-
-        {breakdown.by_card.length === 0 ? (
+        {cardData.length === 0 ? (
           <div className="mt-4">
             <EmptyChartNote />
           </div>
         ) : (
-          <div className="mt-5 flex flex-col gap-3">
-            {breakdown.by_card.map((card) => (
-              <div key={card.card_id} className="space-y-2">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="truncate">{card.card_name}</span>
-                  <span className="font-medium tabular-nums">
-                    {formatCurrencyFromCents(card.total_amount_cents)}
-                  </span>
-                </div>
-                <div
-                  aria-hidden="true"
-                  className="h-4 overflow-hidden rounded-md bg-muted ring-1 ring-border"
+          <div
+            className="mt-5"
+            style={{ height: Math.max(190, cardData.length * 58) }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={cardData}
+                layout="vertical"
+                margin={{ bottom: 6, left: 0, right: 92, top: 6 }}
+              >
+                <CartesianGrid
+                  horizontal={false}
+                  stroke="var(--border)"
+                  strokeDasharray="3 3"
+                />
+                <XAxis type="number" hide domain={[0, "dataMax"]} />
+                <YAxis
+                  axisLine={false}
+                  dataKey="name"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  tickLine={false}
+                  type="category"
+                  width={92}
+                />
+                <Tooltip content={<ChartTooltip />} cursor={false} />
+                <Bar
+                  dataKey="total"
+                  fill="var(--chart-3)"
+                  isAnimationActive={false}
+                  name="Total"
+                  radius={[0, 6, 6, 0]}
                 >
-                  <div
-                    className="h-full rounded-md bg-[var(--chart-3)]"
-                    style={{
-                      width: `${getProgressPercentage(
-                        card.total_amount_cents,
-                        breakdown.total_amount_cents
-                      )}%`,
-                    }}
+                  <LabelList
+                    dataKey="total"
+                    fill="var(--foreground)"
+                    fontSize={11}
+                    formatter={currencyLabel}
+                    position="right"
                   />
-                </div>
-              </div>
-            ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </ChartPanel>
 
       <ChartPanel
         ariaLabel={`Itens com maior peso em ${breakdown.month_label}`}
+        caption="Lista os itens de maior valor para explicar o que mais pesa no mês."
         eyebrow="Top itens"
         title="O que pesa neste mês"
       >
@@ -236,42 +360,51 @@ export function MonthlyAnalytics({ breakdown, summaries }: MonthlyAnalyticsProps
 
       <ChartPanel
         ariaLabel={`Tendência mensal recente até ${breakdown.month_label}`}
+        caption="Mostra a variação dos últimos meses disponíveis no resumo."
         eyebrow="Resumo"
         title="Tendência mensal"
       >
-        {trendItems.length === 0 ? (
+        {trendData.length === 0 ? (
           <div className="mt-4">
             <EmptyChartNote />
           </div>
         ) : (
-          <div className="mt-5 flex h-52 items-end gap-2">
-            {trendItems.map((summary) => (
-              <div
-                key={summary.month}
-                className="flex min-w-0 flex-1 flex-col items-center gap-2"
+          <div className="mt-5 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={trendData}
+                margin={{ bottom: 4, left: 4, right: 4, top: 28 }}
               >
-                <div className="w-full truncate text-center text-[11px] font-medium tabular-nums">
-                  {formatCurrencyFromCents(summary.total_amount_cents)}
-                </div>
-                <div
-                  aria-hidden="true"
-                  className="flex h-36 w-full items-end rounded-md bg-muted px-1.5 py-1.5 ring-1 ring-border"
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--border)"
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  axisLine={false}
+                  dataKey="month"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  tickLine={false}
+                />
+                <YAxis hide />
+                <Tooltip content={<ChartTooltip />} cursor={false} />
+                <Bar
+                  dataKey="total"
+                  fill="var(--chart-4)"
+                  isAnimationActive={false}
+                  name="Total"
+                  radius={[6, 6, 0, 0]}
                 >
-                  <div
-                    className="w-full rounded-sm bg-[var(--chart-4)]"
-                    style={{
-                      height: `${getProgressPercentage(
-                        summary.total_amount_cents,
-                        trendMax
-                      )}%`,
-                    }}
+                  <LabelList
+                    dataKey="total"
+                    fill="var(--foreground)"
+                    fontSize={11}
+                    formatter={currencyLabel}
+                    position="top"
                   />
-                </div>
-                <div className="w-full truncate text-center text-[11px] text-muted-foreground">
-                  {summary.month.slice(5)}
-                </div>
-              </div>
-            ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </ChartPanel>
