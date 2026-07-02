@@ -738,7 +738,12 @@ export function buildReturnToPath(
 }
 
 export function sanitizeRedirectPath(value: string | null | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\")
+  ) {
     return "/"
   }
 

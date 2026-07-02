@@ -89,7 +89,7 @@ export function LoginForm({ errorMessage }: LoginFormProps) {
               required
             />
             <FieldDescription>
-              No primeiro acesso, use o link abaixo para criar sua senha.
+              Primeiro acesso ou senha esquecida: receba um link para criar uma senha.
             </FieldDescription>
             <FieldError message={passwordError} />
           </FieldContent>
@@ -131,7 +131,7 @@ export function LoginForm({ errorMessage }: LoginFormProps) {
           ) : (
             <KeyRoundIcon data-icon="inline-start" />
           )}
-          Primeiro acesso ou esqueci minha senha
+          Criar ou redefinir senha
         </Button>
       </div>
     </form>

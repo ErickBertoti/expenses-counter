@@ -249,8 +249,23 @@ export async function requestPasswordResetAction(
   }
 
   const supabase = await createClient()
-  const appOrigin = await getAppOrigin()
-  const redirectTo = `${appOrigin}/auth/callback?next=/auth/update-password`
+  let appOrigin: string
+
+  try {
+    appOrigin = await getAppOrigin()
+  } catch (error) {
+    console.error("[auth] Password reset origin resolution failed", {
+      message: error instanceof Error ? error.message : String(error),
+    })
+
+    return {
+      status: "error",
+      message:
+        "Nao foi possivel preparar o link de senha. Configure a URL publica do app.",
+    }
+  }
+
+  const redirectTo = `${appOrigin}/auth/confirm?next=/auth/update-password`
 
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo,

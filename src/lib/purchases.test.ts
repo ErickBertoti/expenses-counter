@@ -10,6 +10,7 @@ import {
   filterPurchases,
   getInstallmentAmountForMonth,
   parseDashboardFilters,
+  sanitizeRedirectPath,
 } from "./purchases"
 import type { MonthlyExpenseRecord, PurchaseRecord } from "./types"
 
@@ -388,5 +389,25 @@ describe("purchase calculations", () => {
         }
       )
     ).toBe("/?status=disabled&month=2025-03&view=monthly&editMonthly=monthly-1")
+  })
+})
+
+describe("redirect sanitization", () => {
+  it("keeps internal app paths", () => {
+    expect(sanitizeRedirectPath("/auth/update-password")).toBe(
+      "/auth/update-password"
+    )
+    expect(sanitizeRedirectPath("/?view=summary")).toBe("/?view=summary")
+  })
+
+  it("rejects external and backslash-based redirects", () => {
+    const decodedBackslashRedirect = new URL(
+      "https://app.example/auth/confirm?next=/%5C%5Cattacker.example"
+    ).searchParams.get("next")
+
+    expect(sanitizeRedirectPath("https://attacker.example")).toBe("/")
+    expect(sanitizeRedirectPath("//attacker.example")).toBe("/")
+    expect(sanitizeRedirectPath("/\\attacker.example")).toBe("/")
+    expect(sanitizeRedirectPath(decodedBackslashRedirect)).toBe("/")
   })
 })
