@@ -29,12 +29,15 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims()
   const user = data?.claims
+  const publicAuthPaths = new Set([
+    "/auth/login",
+    "/auth/callback",
+    "/auth/confirm",
+  ])
+  const normalizedPathname = request.nextUrl.pathname.replace(/\/$/, "") || "/"
+  const isPublicAuthPath = publicAuthPaths.has(normalizedPathname)
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/auth/login") &&
-    !request.nextUrl.pathname.startsWith("/auth/callback")
-  ) {
+  if (!user && !isPublicAuthPath) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     return NextResponse.redirect(url)

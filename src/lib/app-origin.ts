@@ -1,4 +1,6 @@
 const LOCALHOST_ORIGIN = "http://localhost:3000"
+const PRODUCTION_ORIGIN_ERROR =
+  "Configure NEXT_PUBLIC_APP_URL or APP_URL for production auth redirects."
 
 type ResolveAppOriginOptions = {
   forwardedHost?: string | null
@@ -29,12 +31,7 @@ function normalizeOrigin(value: string | null | undefined) {
 }
 
 function getConfiguredOrigin() {
-  return normalizeOrigin(
-    process.env.NEXT_PUBLIC_APP_URL ??
-      process.env.APP_URL ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.SITE_URL
-  )
+  return normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL)
 }
 
 function getVercelOrigin() {
@@ -45,19 +42,33 @@ function getVercelOrigin() {
   )
 }
 
+function getRequestOrigin(options: ResolveAppOriginOptions) {
+  const host = options.forwardedHost ?? options.host
+  if (!host) {
+    return null
+  }
+
+  const normalizedHost = host.split(",")[0]?.trim()
+  if (!normalizedHost) {
+    return null
+  }
+
+  const protocol =
+    options.forwardedProto?.split(",")[0]?.trim() ??
+    (normalizedHost.includes("localhost") ? "http" : "https")
+
+  return normalizeOrigin(`${protocol}://${normalizedHost}`)
+}
+
 export function resolveAppOrigin(options: ResolveAppOriginOptions = {}) {
   const configuredOrigin = getConfiguredOrigin()
   if (configuredOrigin) {
     return configuredOrigin
   }
 
-  const host = options.forwardedHost ?? options.host
-  if (host) {
-    const protocol =
-      options.forwardedProto ?? (host.includes("localhost") ? "http" : "https")
-
-    return `${protocol}://${host}`
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(PRODUCTION_ORIGIN_ERROR)
   }
 
-  return getVercelOrigin() ?? LOCALHOST_ORIGIN
+  return getRequestOrigin(options) ?? getVercelOrigin() ?? LOCALHOST_ORIGIN
 }

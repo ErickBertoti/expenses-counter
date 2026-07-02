@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { resolveAppOrigin } from "./app-origin"
 
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV
+
 function clearOriginEnv() {
   delete process.env.NEXT_PUBLIC_APP_URL
   delete process.env.APP_URL
@@ -14,10 +16,16 @@ function clearOriginEnv() {
 
 afterEach(() => {
   clearOriginEnv()
+  if (ORIGINAL_NODE_ENV) {
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV
+  } else {
+    delete process.env.NODE_ENV
+  }
 })
 
 describe("resolveAppOrigin", () => {
   it("prefers an explicit public app url", () => {
+    process.env.NODE_ENV = "production"
     process.env.NEXT_PUBLIC_APP_URL = "https://expenses-counter.vercel.app/"
 
     expect(resolveAppOrigin()).toBe("https://expenses-counter.vercel.app")
@@ -29,7 +37,21 @@ describe("resolveAppOrigin", () => {
     expect(resolveAppOrigin()).toBe("https://expenses-counter.vercel.app")
   })
 
-  it("uses forwarded request headers when no explicit origin is configured", () => {
+  it("rejects request headers in production without an explicit origin", () => {
+    process.env.NODE_ENV = "production"
+
+    expect(() =>
+      resolveAppOrigin({
+        forwardedHost: "attacker.example.com",
+        forwardedProto: "https",
+        host: "expenses-counter.vercel.app",
+      })
+    ).toThrow("Configure NEXT_PUBLIC_APP_URL or APP_URL")
+  })
+
+  it("uses forwarded request headers in development when no explicit origin is configured", () => {
+    process.env.NODE_ENV = "development"
+
     expect(
       resolveAppOrigin({
         forwardedHost: "preview.example.com",
@@ -39,7 +61,8 @@ describe("resolveAppOrigin", () => {
     ).toBe("https://preview.example.com")
   })
 
-  it("falls back to vercel runtime host when request headers are absent", () => {
+  it("falls back to vercel runtime host outside production when request headers are absent", () => {
+    process.env.NODE_ENV = "development"
     process.env.VERCEL_URL = "expenses-counter-git-main-erick.vercel.app"
 
     expect(resolveAppOrigin()).toBe(
@@ -47,7 +70,9 @@ describe("resolveAppOrigin", () => {
     )
   })
 
-  it("keeps localhost as the final development fallback", () => {
+  it("keeps localhost as the final non-production fallback", () => {
+    process.env.NODE_ENV = "development"
+
     expect(resolveAppOrigin()).toBe("http://localhost:3000")
   })
 })
