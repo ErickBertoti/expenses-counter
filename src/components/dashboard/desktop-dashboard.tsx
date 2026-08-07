@@ -178,6 +178,7 @@ export function DesktopDashboard({
               <PurchaseFilters
                 key={JSON.stringify({
                   cardId: dashboard.filters.cardId,
+                  includeDisabled: dashboard.filters.includeDisabled,
                   month: dashboard.filters.month,
                   query: dashboard.filters.query,
                   status: dashboard.filters.status,
@@ -209,8 +210,13 @@ export function DesktopDashboard({
                       </EmptyMedia>
                       <EmptyTitle>Nenhuma compra encontrada</EmptyTitle>
                       <EmptyDescription>
-                        Ajuste os filtros ou cadastre a primeira compra
-                        parcelada no painel ao lado.
+                        {dashboard.filters.status === "all" &&
+                        !dashboard.filters.includeDisabled &&
+                        !dashboard.filters.query &&
+                        !dashboard.filters.month &&
+                        !dashboard.filters.cardId
+                          ? "Compras desativadas ficam ocultas. Ative o switch \"Incluir desativadas nos totais\" nos filtros para encontrá-las sem reativá-las."
+                          : "Ajuste os filtros ou cadastre a primeira compra parcelada no painel ao lado."}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>

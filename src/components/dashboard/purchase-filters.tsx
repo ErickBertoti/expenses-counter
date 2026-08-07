@@ -40,12 +40,17 @@ type PurchaseFiltersProps = {
 function resolveFilterHref(
   pathname: string,
   searchParamsString: string,
-  updates: Partial<Record<"q" | "status" | "month" | "card", string>>
+  updates: Partial<
+    Record<"q" | "status" | "month" | "card" | "includeDisabled", string>
+  >
 ) {
   const params = new URLSearchParams(searchParamsString)
 
   for (const [key, value] of Object.entries(updates)) {
-    const shouldDelete = !value || (key === "status" && value === "all")
+    const shouldDelete =
+      !value ||
+      (key === "status" && value === "all") ||
+      (key === "includeDisabled" && value !== "1")
 
     if (shouldDelete) {
       params.delete(key)
@@ -84,7 +89,9 @@ export function PurchaseFilters({
   }
 
   function replaceFilters(
-    updates: Partial<Record<"q" | "status" | "month" | "card", string>>
+    updates: Partial<
+      Record<"q" | "status" | "month" | "card" | "includeDisabled", string>
+    >
   ) {
     startTransition(() => {
       router.replace(resolveFilterHref(pathname, searchParamsString, updates), {
@@ -98,6 +105,7 @@ export function PurchaseFilters({
     replaceFilters({
       q: "",
       status: "all",
+      includeDisabled: "",
       month: "",
       card: "",
     })
@@ -173,7 +181,7 @@ export function PurchaseFilters({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="all">Ativas e concluídas</SelectItem>
                   <SelectItem value="active">Em andamento</SelectItem>
                   <SelectItem value="completed">Concluídas</SelectItem>
                   <SelectItem value="disabled">Desativadas</SelectItem>
@@ -224,6 +232,43 @@ export function PurchaseFilters({
           </Field>
         ) : null}
       </FieldGroup>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={filters.includeDisabled}
+        onClick={() =>
+          replaceFilters({ includeDisabled: filters.includeDisabled ? "" : "1" })
+        }
+        className="flex w-full items-center gap-3 rounded-md border border-border bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors",
+            filters.includeDisabled
+              ? "border-primary bg-primary"
+              : "border-input bg-background"
+          )}
+        >
+          <span
+            className={cn(
+              "size-4 rounded-full bg-current shadow-sm transition-transform",
+              filters.includeDisabled
+                ? "translate-x-5 text-primary-foreground"
+                : "translate-x-1 text-muted-foreground"
+            )}
+          />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-medium">Incluir desativadas nos totais</span>
+          <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+            {filters.includeDisabled
+              ? "Ativo nesta visão, sem reativar as compras."
+              : "Mostre-as e some seus valores sem alterar o estado salvo."}
+          </span>
+        </span>
+      </button>
 
       <div className={cn("flex", isMobile ? "" : "justify-end")}>
         <Button

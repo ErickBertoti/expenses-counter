@@ -220,6 +220,43 @@ describe("purchase calculations", () => {
     })
   })
 
+  it("includes disabled purchases when the temporary view filter is enabled", () => {
+    const activePurchase = buildPurchaseWithProgress(
+      createPurchase({
+        id: "purchase-active",
+        total_amount_cents: 30000,
+      }),
+      "CartÃ£o principal",
+      "2025-03"
+    )
+    const disabledPurchase = buildPurchaseWithProgress(
+      createPurchase({
+        id: "purchase-disabled",
+        is_disabled: true,
+        total_amount_cents: 90000,
+      }),
+      "CartÃ£o principal",
+      "2025-03"
+    )
+    const filters = parseDashboardFilters({ includeDisabled: "1" })
+
+    expect(
+      filterPurchases([activePurchase, disabledPurchase], filters).map(
+        (purchase) => purchase.id
+      )
+    ).toEqual(["purchase-active", "purchase-disabled"])
+    expect(disabledPurchase.is_disabled).toBe(true)
+    expect(
+      buildMonthlySummaries([activePurchase, disabledPurchase], [], {
+        includeDisabled: filters.includeDisabled,
+        referenceMonthKey: "2025-03",
+      }).find((summary) => summary.month === "2025-02")
+    ).toMatchObject({
+      total_amount_cents: 30000,
+      installment_total_cents: 30000,
+    })
+  })
+
   it("adds monthly expenses only inside their configured period", () => {
     const monthlyExpense = buildMonthlyExpenseWithCard(
       createMonthlyExpense({
@@ -327,12 +364,36 @@ describe("purchase calculations", () => {
         parseDashboardFilters({ status: "disabled" })
       ).map((monthlyExpense) => monthlyExpense.id)
     ).toEqual(["monthly-disabled"])
+    expect(
+      filterMonthlyExpenses(
+        [activeMonthlyExpense, disabledMonthlyExpense],
+        parseDashboardFilters({ includeDisabled: "1" })
+      ).map((monthlyExpense) => monthlyExpense.id)
+    ).toEqual(["monthly-active", "monthly-disabled"])
   })
 
   it("defaults the dashboard view to purchases", () => {
     expect(parseDashboardFilters({})).toMatchObject({
+      includeDisabled: false,
       view: "purchases",
     })
+  })
+
+  it("reads and preserves the temporary disabled-items filter", () => {
+    expect(parseDashboardFilters({ includeDisabled: "1" })).toMatchObject({
+      includeDisabled: true,
+    })
+
+    expect(
+      buildReturnToPath({
+        query: "",
+        status: "all",
+        includeDisabled: true,
+        month: "2025-03",
+        cardId: "",
+        view: "purchases",
+      })
+    ).toBe("/?includeDisabled=1&month=2025-03")
   })
 
   it("reads the summary view from query params", () => {

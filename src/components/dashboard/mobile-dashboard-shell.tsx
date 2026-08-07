@@ -71,6 +71,7 @@ type MobileDashboardShellProps = {
 
 type DashboardBaseFilters = {
   cardId: string
+  includeDisabled: boolean
   month: string
   query: string
   status: "all" | PurchaseWithProgress["status"]
@@ -373,6 +374,7 @@ export function MobileDashboardShell({
   const filtersBase: DashboardBaseFilters = {
     query: dashboard.filters.query,
     status: dashboard.filters.status,
+    includeDisabled: dashboard.filters.includeDisabled,
     month: dashboard.filters.month,
     cardId: dashboard.filters.cardId,
     view: dashboard.filters.view,
@@ -419,6 +421,7 @@ export function MobileDashboardShell({
         : dashboard.filters.status === "disabled"
           ? "Somente desativadas"
           : null,
+    dashboard.filters.includeDisabled ? "Incluindo desativadas" : null,
     dashboard.filters.month ? formatMonthLabel(dashboard.filters.month) : null,
     dashboard.filters.cardId
       ? dashboard.cards.find((card) => card.id === dashboard.filters.cardId)?.name ?? "Cartão"
@@ -664,7 +667,13 @@ export function MobileDashboardShell({
                 </EmptyMedia>
                 <EmptyTitle>Nenhuma compra encontrada</EmptyTitle>
                 <EmptyDescription>
-                  Ajuste os filtros ou cadastre a primeira compra parcelada.
+                  {dashboard.filters.status === "all" &&
+                  !dashboard.filters.includeDisabled &&
+                  !dashboard.filters.query &&
+                  !dashboard.filters.month &&
+                  !dashboard.filters.cardId
+                    ? "Compras desativadas ficam ocultas. Abra Filtros e ative o switch para encontrá-las sem reativá-las."
+                    : "Ajuste os filtros ou cadastre a primeira compra parcelada."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -697,6 +706,7 @@ export function MobileDashboardShell({
             <PurchaseFilters
               key={JSON.stringify({
                 cardId: dashboard.filters.cardId,
+                includeDisabled: dashboard.filters.includeDisabled,
                 month: dashboard.filters.month,
                 query: dashboard.filters.query,
                 status: dashboard.filters.status,

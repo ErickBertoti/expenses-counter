@@ -93,7 +93,8 @@ Implementados em `src/components/dashboard/purchase-filters.tsx`.
 Filtros atuais:
 
 - Busca por descrição.
-- Status: todos, em andamento, concluídas.
+- Status: ativas e concluídas, em andamento, concluídas ou desativadas.
+- Switcher para incluir compras e mensalidades desativadas nos totais sem alterar o estado salvo.
 - Mês.
 - Cartão, quando existe mais de um cartão.
 

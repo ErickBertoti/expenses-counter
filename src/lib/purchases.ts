@@ -242,18 +242,16 @@ export function filterPurchases(
   const normalizedQuery = filters.query.toLocaleLowerCase("pt-BR")
 
   return purchases.filter((purchase) => {
-    if (filters.status === "disabled") {
-      if (purchase.status !== "disabled") {
-        return false
-      }
-    } else {
-      if (purchase.status === "disabled") {
-        return false
-      }
+    if (filters.status !== "all" && purchase.status !== filters.status) {
+      return false
+    }
 
-      if (filters.status !== "all" && purchase.status !== filters.status) {
-        return false
-      }
+    if (
+      purchase.status === "disabled" &&
+      !filters.includeDisabled &&
+      filters.status !== "disabled"
+    ) {
+      return false
     }
 
     if (
@@ -286,7 +284,7 @@ export function filterMonthlyExpenses(
       if (!monthlyExpense.is_disabled) {
         return false
       }
-    } else if (monthlyExpense.is_disabled) {
+    } else if (monthlyExpense.is_disabled && !filters.includeDisabled) {
       return false
     }
 
@@ -453,22 +451,26 @@ function getMonthlySummaryWindowEnd({
 
 export function buildMonthlyBreakdowns({
   focusMonth,
+  includeDisabled = false,
   monthlyExpenses,
   purchases,
   referenceMonthKey = getCurrentMonthKey(),
 }: {
   focusMonth?: string
+  includeDisabled?: boolean
   monthlyExpenses: MonthlyExpenseWithCard[]
   purchases: PurchaseWithProgress[]
   referenceMonthKey?: string
 }) {
-  const enabledPurchases = purchases.filter((purchase) => purchase.status !== "disabled")
-  const enabledMonthlyExpenses = monthlyExpenses.filter(
-    (monthlyExpense) => !monthlyExpense.is_disabled
-  )
+  const includedPurchases = includeDisabled
+    ? purchases
+    : purchases.filter((purchase) => purchase.status !== "disabled")
+  const includedMonthlyExpenses = includeDisabled
+    ? monthlyExpenses
+    : monthlyExpenses.filter((monthlyExpense) => !monthlyExpense.is_disabled)
   const monthlyBreakdowns = new Map<string, MonthlyBreakdown>()
 
-  for (const purchase of enabledPurchases) {
+  for (const purchase of includedPurchases) {
     const firstInstallmentMonth = normalizeMonthValue(purchase.first_installment_month)
     purchase.installment_amounts_cents.forEach((amount, index) => {
       const month = addMonthsToMonthKey(firstInstallmentMonth, index)
@@ -489,11 +491,11 @@ export function buildMonthlyBreakdowns({
 
   const windowEnd = getMonthlySummaryWindowEnd({
     focusMonth,
-    purchases: enabledPurchases,
+    purchases: includedPurchases,
     referenceMonthKey,
   })
 
-  for (const monthlyExpense of enabledMonthlyExpenses) {
+  for (const monthlyExpense of includedMonthlyExpenses) {
     let month = normalizeMonthValue(monthlyExpense.start_month)
     const endMonth = monthlyExpense.end_month
       ? normalizeMonthValue(monthlyExpense.end_month)
@@ -525,6 +527,7 @@ export function buildMonthlySummaries(
   monthlyExpenses: MonthlyExpenseWithCard[] = [],
   options?: {
     focusMonth?: string
+    includeDisabled?: boolean
     referenceMonthKey?: string
   }
 ) {
@@ -532,6 +535,7 @@ export function buildMonthlySummaries(
     purchases,
     monthlyExpenses,
     focusMonth: options?.focusMonth,
+    includeDisabled: options?.includeDisabled,
     referenceMonthKey: options?.referenceMonthKey,
   }).map((breakdown): MonthlySummary => {
     const purchaseIds = new Set(
@@ -680,6 +684,7 @@ export function parseDashboardFilters(
 ): DashboardFilters {
   const query = firstSearchParamValue(searchParams.q).trim().slice(0, 80)
   const rawStatus = firstSearchParamValue(searchParams.status)
+  const rawIncludeDisabled = firstSearchParamValue(searchParams.includeDisabled)
   const month = firstSearchParamValue(searchParams.month)
   const flash = firstSearchParamValue(searchParams.flash).trim()
   const rawView = firstSearchParamValue(searchParams.view)
@@ -692,6 +697,7 @@ export function parseDashboardFilters(
       rawStatus === "disabled"
         ? rawStatus
         : "all",
+    includeDisabled: rawIncludeDisabled === "1" || rawIncludeDisabled === "true",
     month: isValidMonthKey(month) ? month : "",
     cardId: firstSearchParamValue(searchParams.card).trim(),
     view: isDashboardView(rawView) ? rawView : "purchases",
@@ -702,7 +708,8 @@ export function parseDashboardFilters(
 }
 
 export function buildReturnToPath(
-  filters: Pick<DashboardFilters, "query" | "status" | "month" | "cardId" | "view">,
+  filters: Pick<DashboardFilters, "query" | "status" | "month" | "cardId" | "view"> &
+    Partial<Pick<DashboardFilters, "includeDisabled">>,
   extras?: Record<string, string | undefined>
 ) {
   const params = new URLSearchParams()
@@ -713,6 +720,10 @@ export function buildReturnToPath(
 
   if (filters.status !== "all") {
     params.set("status", filters.status)
+  }
+
+  if (filters.includeDisabled) {
+    params.set("includeDisabled", "1")
   }
 
   if (filters.month) {
