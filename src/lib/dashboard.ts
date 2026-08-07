@@ -148,6 +148,7 @@ export async function getDashboardData(
   const focusMonth = filters.month || currentMonth
   const monthlyBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
+    includeDisabled: filters.includeDisabled,
     monthlyExpenses: summaryMonthlyExpenses,
     purchases: summaryPurchases,
     referenceMonthKey: currentMonth,
@@ -157,6 +158,7 @@ export async function getDashboardData(
     summaryMonthlyExpenses,
     {
       focusMonth,
+      includeDisabled: filters.includeDisabled,
       referenceMonthKey: currentMonth,
     }
   )
@@ -185,7 +187,7 @@ export async function getDashboardData(
   ).length
   const remainingAmountCents = filteredPurchases.reduce(
     (total, purchase) =>
-      purchase.status === "disabled"
+      purchase.status === "disabled" && !filters.includeDisabled
         ? total
         : total + purchase.remaining_amount_cents,
     0

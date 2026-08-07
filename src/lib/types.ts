@@ -167,6 +167,7 @@ export type MonthlyExportModel = {
 export type DashboardFilters = {
   query: string
   status: "all" | PurchaseStatus
+  includeDisabled: boolean
   month: string
   cardId: string
   view: DashboardView
