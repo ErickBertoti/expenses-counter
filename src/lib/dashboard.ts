@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/server"
 import { buildMonthlyExportModel } from "@/lib/monthly-export"
+import { buildDashboardAnalytics } from "@/lib/analytics"
 import {
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
@@ -168,6 +169,14 @@ export async function getDashboardData(
   const focusBreakdown =
     monthlyBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
     emptyMonthlyBreakdown(focusMonth)
+  const analytics = buildDashboardAnalytics({
+    breakdowns: monthlyBreakdowns,
+    currentMonth,
+    focusBreakdown,
+    focusMonth,
+    purchases: summaryPurchases,
+    summaries: monthlySummaries,
+  })
   const exportBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
     monthlyExpenses: monthlyExpensesWithCard,
@@ -198,6 +207,7 @@ export async function getDashboardData(
   const defaultCard = cards.find((card) => card.is_default) ?? cards[0]
 
   return {
+    analytics,
     activePurchaseCount,
     activeMonthlyExpenseCount,
     cards,

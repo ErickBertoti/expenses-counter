@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CalendarClockIcon,
   CalendarRangeIcon,
@@ -59,6 +59,7 @@ import type {
   PurchaseFormValues,
   PurchaseWithProgress,
 } from "@/lib/types"
+import { sortPurchases, type PurchaseSortKey } from "@/lib/purchase-sorting"
 import { cn } from "@/lib/utils"
 
 type MobileDashboardShellProps = {
@@ -235,24 +236,32 @@ function MobilePurchaseCard({
 }
 
 function MobileSummaryCard({
+  filtersBase,
   isFocusMonth,
-  month_label,
-  total_amount_cents,
-  installment_count,
-  monthly_expense_count,
-}: DashboardData["monthlySummaries"][number] & {
+  summary,
+}: {
+  filtersBase: DashboardBaseFilters
   isFocusMonth: boolean
+  summary: DashboardData["analytics"]["monthlyRows"][number]
 }) {
+  const monthHref = buildReturnToPath(filtersBase, { month: summary.month })
+
   return (
     <article className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-medium">{month_label}</h3>
+            <Link
+              href={monthHref}
+              scroll={false}
+              className="truncate text-sm font-medium underline-offset-4 active:scale-[0.98]"
+            >
+              {summary.monthLabel}
+            </Link>
             {isFocusMonth ? <Badge variant="secondary">Em foco</Badge> : null}
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {installment_count} parcelas e {monthly_expense_count} mensais
+            {summary.itemCount} itens · maior impacto {summary.topItemDescription ?? "não disponível"}
           </p>
         </div>
         <div className="text-right">
@@ -260,10 +269,31 @@ function MobileSummaryCard({
             Total
           </div>
           <div className="mt-1 text-sm font-semibold tabular-nums">
-            {formatCurrencyFromCents(total_amount_cents)}
+            {formatCurrencyFromCents(summary.totalAmountCents)}
           </div>
         </div>
       </div>
+      <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3 text-xs">
+        <div>
+          <dt className="text-muted-foreground">Variação</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {summary.deltaAmountCents > 0 ? "+" : summary.deltaAmountCents < 0 ? "−" : ""}
+            {formatCurrencyFromCents(Math.abs(summary.deltaAmountCents))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Parcelas</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {formatCurrencyFromCents(summary.installmentAmountCents)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Mensais</dt>
+          <dd className="mt-1 font-medium tabular-nums">
+            {formatCurrencyFromCents(summary.monthlyAmountCents)}
+          </dd>
+        </div>
+      </dl>
     </article>
   )
 }
@@ -358,6 +388,10 @@ export function MobileDashboardShell({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [purchaseSort, setPurchaseSort] = useState("default")
+  const purchaseSignature = dashboard.purchases
+    .map((purchase) => purchase.id)
+    .join(":")
   const composeMode = searchParams.get("compose")
   const editId = searchParams.get("edit")
   const monthlyEditId = searchParams.get("editMonthly")
@@ -379,6 +413,18 @@ export function MobileDashboardShell({
     cardId: dashboard.filters.cardId,
     view: dashboard.filters.view,
   }
+  const sortedPurchases = useMemo(() => {
+    if (purchaseSort === "default") return dashboard.purchases
+    const [key, direction] = purchaseSort.split(":") as [
+      PurchaseSortKey,
+      "ascending" | "descending",
+    ]
+    return sortPurchases(dashboard.purchases, dashboard.focusMonth, key, direction)
+  }, [dashboard.focusMonth, dashboard.purchases, purchaseSort])
+
+  useEffect(() => {
+    setPurchaseSort("default")
+  }, [dashboard.focusMonth, purchaseSignature])
   const newPurchaseHref = buildReturnToPath(filtersBase, {
     compose: "1",
   })
@@ -606,8 +652,8 @@ export function MobileDashboardShell({
       {dashboard.filters.view === "summary" ? (
         <section className="flex flex-col gap-3">
           <MonthlyAnalytics
-            breakdown={dashboard.focusBreakdown}
-            summaries={dashboard.monthlySummaries}
+            analytics={dashboard.analytics}
+            focusMonth={dashboard.focusMonth}
           />
           <MonthlyExportPanel model={dashboard.monthlyExport} />
           {dashboard.monthlySummaries.length === 0 ? (
@@ -624,10 +670,11 @@ export function MobileDashboardShell({
               </EmptyHeader>
             </Empty>
           ) : (
-            dashboard.monthlySummaries.map((summary) => (
+            dashboard.analytics.monthlyRows.map((summary) => (
               <MobileSummaryCard
                 key={summary.month}
-                {...summary}
+                filtersBase={filtersBase}
+                summary={summary}
                 isFocusMonth={summary.month === dashboard.focusMonth}
               />
             ))
@@ -659,6 +706,24 @@ export function MobileDashboardShell({
         </section>
       ) : (
         <section className="flex flex-col gap-3">
+          {dashboard.purchases.length > 0 ? (
+            <label className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Ordenar compras</span>
+              <select
+                value={purchaseSort}
+                onChange={(event) => setPurchaseSort(event.target.value)}
+                className="min-w-0 max-w-48 rounded-sm border border-input bg-background px-2 py-1.5 text-right text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="default">Ordem padrão</option>
+                <option value="installment:descending">Maior parcela</option>
+                <option value="total:descending">Maior total</option>
+                <option value="remaining:descending">Maior saldo</option>
+                <option value="duration:descending">Mais longa</option>
+                <option value="completion:ascending">Termina primeiro</option>
+                <option value="purchase:ascending">Nome A–Z</option>
+              </select>
+            </label>
+          ) : null}
           {dashboard.purchases.length === 0 ? (
             <Empty className="rounded-md border border-dashed border-border bg-muted p-6">
               <EmptyHeader>
@@ -678,7 +743,7 @@ export function MobileDashboardShell({
               </EmptyHeader>
             </Empty>
           ) : (
-            dashboard.purchases.map((purchase) => (
+            sortedPurchases.map((purchase) => (
               <MobilePurchaseCard
                 key={purchase.id}
                 filtersBase={filtersBase}
