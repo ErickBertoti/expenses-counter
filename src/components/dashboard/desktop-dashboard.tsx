@@ -17,6 +17,7 @@ import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
+import { SortablePurchaseTable } from "@/components/dashboard/sortable-purchase-table"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -42,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { DashboardData } from "@/lib/dashboard"
+import { resolveDashboardMonthHref } from "@/lib/dashboard-url"
 import {
   buildReturnToPath,
   formatCurrencyFromCents,
@@ -168,8 +170,8 @@ export function DesktopDashboard({
             </section>
 
             <MonthlyAnalytics
-              breakdown={dashboard.focusBreakdown}
-              summaries={dashboard.monthlySummaries}
+              analytics={dashboard.analytics}
+              focusMonth={dashboard.focusMonth}
             />
 
             <MonthlyExportPanel model={dashboard.monthlyExport} />
@@ -315,104 +317,12 @@ export function DesktopDashboard({
                       })}
                     </div>
 
-                    <div className="hidden overflow-x-auto md:block">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Compra</TableHead>
-                            <TableHead>{focusColumnLabel}</TableHead>
-                            <TableHead>Progresso</TableHead>
-                            <TableHead>Saldo restante</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {dashboard.purchases.map((purchase) => {
-                            const editHref = buildReturnToPath(dashboard.filters, {
-                              edit: purchase.id,
-                            })
-                            const monthAmount = getInstallmentAmountForMonth(
-                              purchase,
-                              dashboard.focusMonth
-                            )
-
-                            return (
-                              <TableRow key={purchase.id}>
-                                <TableCell className="min-w-72">
-                                  <div className="flex flex-col gap-2">
-                                    <div className="font-medium">
-                                      {purchase.description}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                      <Badge variant="outline">
-                                        {purchase.card_name}
-                                      </Badge>
-                                      <span>
-                                        Compra em{" "}
-                                        {formatDateLabel(purchase.purchase_date)}
-                                      </span>
-                                      <span>
-                                        {formatMonthLabel(
-                                          purchase.first_installment_month.slice(0, 7)
-                                        )}{" "}
-                                        até {formatMonthLabel(purchase.completion_month)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {monthAmount === null
-                                    ? "Sem parcela"
-                                    : formatCurrencyFromCents(monthAmount)}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="font-medium tabular-nums">
-                                    {purchase.paid_installments}/
-                                    {purchase.installment_count}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground tabular-nums">
-                                    {formatCurrencyFromCents(
-                                      purchase.total_amount_cents
-                                    )}{" "}
-                                    no total
-                                  </div>
-                                </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {formatCurrencyFromCents(
-                                    purchase.remaining_amount_cents
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <PurchaseStatusBadge status={purchase.status} />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex justify-end gap-2">
-                                    <Link
-                                      href={editHref}
-                                      className={cn(
-                                        buttonVariants({
-                                          variant: "outline",
-                                          size: "sm",
-                                        })
-                                      )}
-                                    >
-                                      <PencilLineIcon data-icon="inline-start" />
-                                      Editar
-                                    </Link>
-                                    <PurchaseDisabledToggleButton
-                                      description={purchase.description}
-                                      disabledState={purchase.status === "disabled"}
-                                      purchaseId={purchase.id}
-                                    />
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <SortablePurchaseTable
+                      filters={dashboard.filters}
+                      focusColumnLabel={focusColumnLabel}
+                      focusMonth={dashboard.focusMonth}
+                      purchases={dashboard.purchases}
+                    />
                   </>
                 )}
               </CardContent>
@@ -615,43 +525,70 @@ export function DesktopDashboard({
                         <TableHeader>
                           <TableRow>
                             <TableHead>Mês</TableHead>
-                            <TableHead>Total</TableHead>
-                            <TableHead>Parcelas</TableHead>
-                            <TableHead>Mensais</TableHead>
-                            <TableHead>Itens</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="text-right">Variação</TableHead>
+                            <TableHead className="text-right">Parcelas</TableHead>
+                            <TableHead className="text-right">Mensais</TableHead>
+                            <TableHead>Maior impacto</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {dashboard.monthlySummaries.map((summary) => {
+                          {dashboard.analytics.monthlyRows.map((summary) => {
                             const isFocusMonth = summary.month === dashboard.focusMonth
+                            const monthHref = resolveDashboardMonthHref(
+                              returnTo,
+                              summary.month
+                            )
 
                             return (
                               <TableRow key={summary.month}>
                                 <TableCell>
                                   <div className="flex items-center gap-2">
-                                    <span>{summary.month_label}</span>
+                                    <Link
+                                      href={monthHref}
+                                      scroll={false}
+                                      className="font-medium underline-offset-4 hover:underline"
+                                    >
+                                      {summary.monthLabel}
+                                    </Link>
                                     {isFocusMonth ? (
                                       <Badge variant="secondary">Em foco</Badge>
                                     ) : null}
                                   </div>
                                 </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {formatCurrencyFromCents(
-                                    summary.total_amount_cents
-                                  )}
+                                <TableCell className="text-right font-medium tabular-nums">
+                                  {formatCurrencyFromCents(summary.totalAmountCents)}
                                 </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {formatCurrencyFromCents(
-                                    summary.installment_total_cents
-                                  )}
+                                <TableCell className="text-right tabular-nums">
+                                  <span className={summary.deltaAmountCents > 0 ? "text-[var(--active)]" : "text-muted-foreground"}>
+                                    {summary.deltaAmountCents > 0 ? "+" : summary.deltaAmountCents < 0 ? "−" : ""}
+                                    {formatCurrencyFromCents(Math.abs(summary.deltaAmountCents))}
+                                  </span>
+                                  <div className="mt-0.5 text-xs text-muted-foreground">
+                                    {summary.deltaPercentage === null
+                                      ? "sem base anterior"
+                                      : `${summary.deltaPercentage > 0 ? "+" : ""}${summary.deltaPercentage}%`}
+                                  </div>
                                 </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {formatCurrencyFromCents(
-                                    summary.monthly_total_cents
-                                  )}
+                                <TableCell className="text-right tabular-nums">
+                                  {formatCurrencyFromCents(summary.installmentAmountCents)}
                                 </TableCell>
-                                <TableCell className="tabular-nums">
-                                  {summary.item_count}
+                                <TableCell className="text-right tabular-nums">
+                                  {formatCurrencyFromCents(summary.monthlyAmountCents)}
+                                </TableCell>
+                                <TableCell className="max-w-56">
+                                  {summary.topItemDescription ? (
+                                    <div className="min-w-0">
+                                      <div className="break-words" title={summary.topItemDescription}>
+                                        {summary.topItemDescription}
+                                      </div>
+                                      <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                                        {formatCurrencyFromCents(summary.topItemAmountCents)}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">Sem itens</span>
+                                  )}
                                 </TableCell>
                               </TableRow>
                             )

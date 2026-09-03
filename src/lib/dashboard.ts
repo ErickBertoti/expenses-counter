@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/server"
 import { buildMonthlyExportModel } from "@/lib/monthly-export"
+import { buildDashboardAnalytics } from "@/lib/analytics"
 import {
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
@@ -15,6 +16,7 @@ import {
   parseDashboardFilters,
   sortMonthlyExpensesForDashboard,
   sortPurchasesForDashboard,
+  shouldIncludeDisabledInAnalytics,
 } from "@/lib/purchases"
 import type {
   CardRecord,
@@ -139,6 +141,7 @@ export async function getDashboardData(
     monthlyExpensesWithCard,
     summaryFilters
   )
+  const includeDisabledInAnalytics = shouldIncludeDisabledInAnalytics(filters)
   const selectedPurchase =
     purchaseRecords.find((purchase) => purchase.id === filters.editId) ?? null
   const selectedMonthlyExpense =
@@ -148,7 +151,7 @@ export async function getDashboardData(
   const focusMonth = filters.month || currentMonth
   const monthlyBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
-    includeDisabled: filters.includeDisabled,
+    includeDisabled: includeDisabledInAnalytics,
     monthlyExpenses: summaryMonthlyExpenses,
     purchases: summaryPurchases,
     referenceMonthKey: currentMonth,
@@ -158,7 +161,7 @@ export async function getDashboardData(
     summaryMonthlyExpenses,
     {
       focusMonth,
-      includeDisabled: filters.includeDisabled,
+      includeDisabled: includeDisabledInAnalytics,
       referenceMonthKey: currentMonth,
     }
   )
@@ -168,6 +171,14 @@ export async function getDashboardData(
   const focusBreakdown =
     monthlyBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
     emptyMonthlyBreakdown(focusMonth)
+  const analytics = buildDashboardAnalytics({
+    breakdowns: monthlyBreakdowns,
+    currentMonth,
+    focusBreakdown,
+    focusMonth,
+    purchases: summaryPurchases,
+    summaries: monthlySummaries,
+  })
   const exportBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
     monthlyExpenses: monthlyExpensesWithCard,
@@ -187,7 +198,7 @@ export async function getDashboardData(
   ).length
   const remainingAmountCents = filteredPurchases.reduce(
     (total, purchase) =>
-      purchase.status === "disabled" && !filters.includeDisabled
+      purchase.status === "disabled" && !includeDisabledInAnalytics
         ? total
         : total + purchase.remaining_amount_cents,
     0
@@ -198,6 +209,7 @@ export async function getDashboardData(
   const defaultCard = cards.find((card) => card.is_default) ?? cards[0]
 
   return {
+    analytics,
     activePurchaseCount,
     activeMonthlyExpenseCount,
     cards,

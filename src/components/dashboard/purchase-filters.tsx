@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CardRecord, DashboardFilters } from "@/lib/types"
+import { resolveDashboardHref } from "@/lib/dashboard-url"
 import { cn } from "@/lib/utils"
 
 type PurchaseFiltersProps = {
@@ -35,37 +36,6 @@ type PurchaseFiltersProps = {
   idPrefix?: string
   showCardFilter: boolean
   variant?: "desktop" | "mobile"
-}
-
-function resolveFilterHref(
-  pathname: string,
-  searchParamsString: string,
-  updates: Partial<
-    Record<"q" | "status" | "month" | "card" | "includeDisabled", string>
-  >
-) {
-  const params = new URLSearchParams(searchParamsString)
-
-  for (const [key, value] of Object.entries(updates)) {
-    const shouldDelete =
-      !value ||
-      (key === "status" && value === "all") ||
-      (key === "includeDisabled" && value !== "1")
-
-    if (shouldDelete) {
-      params.delete(key)
-    } else {
-      params.set(key, value)
-    }
-  }
-
-  params.delete("edit")
-  params.delete("editMonthly")
-  params.delete("flash")
-  params.delete("compose")
-
-  const nextQuery = params.toString()
-  return nextQuery ? `${pathname}?${nextQuery}` : pathname
 }
 
 export function PurchaseFilters({
@@ -94,7 +64,7 @@ export function PurchaseFilters({
     >
   ) {
     startTransition(() => {
-      router.replace(resolveFilterHref(pathname, searchParamsString, updates), {
+      router.replace(resolveDashboardHref(pathname, searchParamsString, updates), {
         scroll: false,
       })
     })
@@ -118,7 +88,7 @@ export function PurchaseFilters({
 
     startTransition(() => {
       router.replace(
-        resolveFilterHref(pathname, searchParamsString, {
+        resolveDashboardHref(pathname, searchParamsString, {
           q: deferredQuery.trim(),
         }),
         {
