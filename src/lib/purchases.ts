@@ -273,6 +273,12 @@ export function filterPurchases(
   })
 }
 
+export function shouldIncludeDisabledInAnalytics(
+  filters: Pick<DashboardFilters, "includeDisabled" | "status">
+) {
+  return filters.includeDisabled || filters.status === "disabled"
+}
+
 export function filterMonthlyExpenses(
   monthlyExpenses: MonthlyExpenseWithCard[],
   filters: DashboardFilters
@@ -412,7 +418,10 @@ function finalizeMonthlyBreakdown(entry: MonthlyBreakdown): MonthlyBreakdown {
       return right.amount_cents - left.amount_cents
     }
 
-    return left.description.localeCompare(right.description, "pt-BR")
+    return (
+      left.description.localeCompare(right.description, "pt-BR") ||
+      left.id.localeCompare(right.id)
+    )
   })
 
   return {

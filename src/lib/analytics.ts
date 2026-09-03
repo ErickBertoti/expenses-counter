@@ -8,7 +8,6 @@ import {
   addMonthsToMonthKey,
   compareMonthKeys,
   formatMonthLabel,
-  getProgressPercentage,
 } from "./purchases"
 
 export type PurchaseRankingKey =
@@ -29,6 +28,11 @@ export type TimelinePoint = {
   topItemAmountCents: number
   isCurrent: boolean
   isFocus: boolean
+}
+
+export type TimelineFutureRange = {
+  startMonth: string
+  endMonth: string
 }
 
 export type MonthlyImpactItem = {
@@ -54,6 +58,7 @@ export type PurchaseRankingItem = {
 }
 
 export type DashboardAnalytics = {
+  currentMonth: string
   timeline: TimelinePoint[]
   monthlyImpacts: MonthlyImpactItem[]
   rankings: Record<PurchaseRankingKey, PurchaseRankingItem[]>
@@ -89,6 +94,30 @@ export type DashboardAnalytics = {
   }>
 }
 
+function getExactPercentage(value: number, total: number) {
+  return total <= 0 ? 0 : Math.round((value / total) * 100)
+}
+
+export function getTimelineFutureRange(
+  timeline: Pick<TimelinePoint, "month">[],
+  currentMonth: string
+): TimelineFutureRange | null {
+  const startMonth = timeline[0]?.month
+  const endMonth = timeline.at(-1)?.month
+
+  if (!startMonth || !endMonth) return null
+
+  if (compareMonthKeys(currentMonth, startMonth) <= 0) {
+    return { startMonth, endMonth }
+  }
+
+  if (compareMonthKeys(currentMonth, endMonth) > 0) {
+    return null
+  }
+
+  return { startMonth: currentMonth, endMonth }
+}
+
 function getTimelineStart(currentMonth: string, focusMonth: string) {
   const defaultStart = addMonthsToMonthKey(currentMonth, -3)
   const defaultEnd = addMonthsToMonthKey(currentMonth, 12)
@@ -105,12 +134,14 @@ function getTimelineStart(currentMonth: string, focusMonth: string) {
 
 function getShortMonthLabel(month: string) {
   const [year, monthNumber] = month.split("-").map(Number)
-  return new Intl.DateTimeFormat("pt-BR", {
+  const label = new Intl.DateTimeFormat("pt-BR", {
     month: "short",
     timeZone: "UTC",
   })
     .format(new Date(Date.UTC(year, monthNumber - 1, 1)))
     .replace(".", "")
+
+  return `${label}/${String(year).slice(-2)}`
 }
 
 function lineItemDetail(item: MonthlyLineItem) {
@@ -127,10 +158,7 @@ function buildMonthlyImpacts(breakdown: MonthlyBreakdown) {
     description: item.description,
     detail: lineItemDetail(item),
     amountCents: item.amount_cents,
-    percentage: getProgressPercentage(
-      item.amount_cents,
-      breakdown.total_amount_cents
-    ),
+    percentage: getExactPercentage(item.amount_cents, breakdown.total_amount_cents),
     isOther: false,
   }))
 
@@ -144,10 +172,7 @@ function buildMonthlyImpacts(breakdown: MonthlyBreakdown) {
       description: "Outros",
       detail: `${remaining.length} itens restantes`,
       amountCents,
-      percentage: getProgressPercentage(
-        amountCents,
-        breakdown.total_amount_cents
-      ),
+      percentage: getExactPercentage(amountCents, breakdown.total_amount_cents),
       isOther: true,
     })
   }
@@ -314,7 +339,7 @@ export function buildDashboardAnalytics({
 }): DashboardAnalytics {
   const timeline = buildTimeline({ breakdowns, currentMonth, focusMonth })
   const total = focusBreakdown.total_amount_cents
-  const installmentPercentage = getProgressPercentage(
+  const installmentPercentage = getExactPercentage(
     focusBreakdown.installment_total_cents,
     total
   )
@@ -348,6 +373,7 @@ export function buildDashboardAnalytics({
   })
 
   return {
+    currentMonth,
     timeline,
     monthlyImpacts: buildMonthlyImpacts(focusBreakdown),
     rankings: buildPurchaseRankings(purchases),

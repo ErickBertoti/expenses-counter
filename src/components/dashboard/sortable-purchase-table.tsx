@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import {
   ArrowDownIcon,
@@ -73,14 +73,22 @@ export function SortablePurchaseTable({
   focusMonth,
   purchases,
 }: SortablePurchaseTableProps) {
-  const [sortKey, setSortKey] = useState<PurchaseSortKey | null>(null)
-  const [direction, setDirection] = useState<SortDirection>("ascending")
-  const signature = purchases.map((purchase) => purchase.id).join(":")
-
-  useEffect(() => {
-    setSortKey(null)
-    setDirection("ascending")
-  }, [signature, focusMonth])
+  const signature = purchases
+    .map((purchase) => `${purchase.id}:${purchase.updated_at}`)
+    .join(":")
+  const sortContext = `${focusMonth}:${signature}`
+  const [sortState, setSortState] = useState<{
+    context: string
+    key: PurchaseSortKey | null
+    direction: SortDirection
+  }>({
+    context: "",
+    key: null,
+    direction: "ascending",
+  })
+  const sortKey = sortState.context === sortContext ? sortState.key : null
+  const direction =
+    sortState.context === sortContext ? sortState.direction : "ascending"
 
   const sortedPurchases = useMemo(
     () => sortPurchases(purchases, focusMonth, sortKey, direction),
@@ -92,8 +100,11 @@ export function SortablePurchaseTable({
 
   function toggleSort(key: PurchaseSortKey) {
     const next = nextSort(sortKey, direction, key)
-    setSortKey(next.key)
-    setDirection(next.direction)
+    setSortState({
+      context: sortContext,
+      key: next.key,
+      direction: next.direction,
+    })
   }
 
   function ariaSort(key: PurchaseSortKey) {

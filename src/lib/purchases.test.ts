@@ -11,6 +11,7 @@ import {
   getInstallmentAmountForMonth,
   parseDashboardFilters,
   sanitizeRedirectPath,
+  shouldIncludeDisabledInAnalytics,
 } from "./purchases"
 import type { MonthlyExpenseRecord, PurchaseRecord } from "./types"
 
@@ -254,6 +255,50 @@ describe("purchase calculations", () => {
     ).toMatchObject({
       total_amount_cents: 30000,
       installment_total_cents: 30000,
+    })
+  })
+
+  it("treats an explicit disabled status as an analytics inclusion", () => {
+    const activePurchase = buildPurchaseWithProgress(
+      createPurchase({
+        id: "purchase-active",
+        total_amount_cents: 30000,
+      }),
+      "Cartão principal",
+      "2025-03"
+    )
+    const disabledPurchase = buildPurchaseWithProgress(
+      createPurchase({
+        id: "purchase-disabled",
+        is_disabled: true,
+        total_amount_cents: 90000,
+      }),
+      "Cartão principal",
+      "2025-03"
+    )
+    const filters = parseDashboardFilters({ status: "disabled" })
+
+    expect(
+      shouldIncludeDisabledInAnalytics(filters)
+    ).toBe(true)
+    expect(
+      shouldIncludeDisabledInAnalytics(parseDashboardFilters({ status: "active" }))
+    ).toBe(false)
+    expect(
+      shouldIncludeDisabledInAnalytics(parseDashboardFilters({ includeDisabled: "1" }))
+    ).toBe(true)
+    expect(
+      buildMonthlySummaries(
+        filterPurchases([activePurchase, disabledPurchase], filters),
+        [],
+        {
+          includeDisabled: shouldIncludeDisabledInAnalytics(filters),
+          referenceMonthKey: "2025-03",
+        }
+      ).find((summary) => summary.month === "2025-02")
+    ).toMatchObject({
+      total_amount_cents: 22500,
+      installment_total_cents: 22500,
     })
   })
 

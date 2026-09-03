@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { buildDashboardAnalytics } from "./analytics"
+import { buildDashboardAnalytics, getTimelineFutureRange } from "./analytics"
 import {
   buildMonthlyBreakdowns,
+  buildMonthlyExpenseWithCard,
   buildPurchaseWithProgress,
   emptyMonthlyBreakdown,
 } from "./purchases"
-import type { PurchaseRecord } from "./types"
+import type { MonthlyExpenseRecord, PurchaseRecord } from "./types"
 
 function purchase(overrides: Partial<PurchaseRecord> = {}): PurchaseRecord {
   return {
@@ -26,13 +27,39 @@ function purchase(overrides: Partial<PurchaseRecord> = {}): PurchaseRecord {
   }
 }
 
-function build(purchases: PurchaseRecord[], focusMonth = "2026-02") {
+function monthlyExpense(
+  overrides: Partial<MonthlyExpenseRecord> = {}
+): MonthlyExpenseRecord {
+  return {
+    id: "monthly-1",
+    user_id: "user-1",
+    card_id: "card-1",
+    description: "Academia",
+    amount_cents: 99,
+    start_month: "2026-02-01",
+    end_month: "2026-02-01",
+    notes: null,
+    is_disabled: false,
+    created_at: "2026-01-10T00:00:00.000Z",
+    updated_at: "2026-01-10T00:00:00.000Z",
+    ...overrides,
+  }
+}
+
+function build(
+  purchases: PurchaseRecord[],
+  focusMonth = "2026-02",
+  monthlyExpenses: MonthlyExpenseRecord[] = []
+) {
   const enriched = purchases.map((item) =>
     buildPurchaseWithProgress(item, "Cartão principal", "2026-02")
   )
+  const enrichedMonthlyExpenses = monthlyExpenses.map((item) =>
+    buildMonthlyExpenseWithCard(item, "Cartão principal")
+  )
   const breakdowns = buildMonthlyBreakdowns({
     purchases: enriched,
-    monthlyExpenses: [],
+    monthlyExpenses: enrichedMonthlyExpenses,
     focusMonth,
     referenceMonthKey: "2026-02",
   })
@@ -63,6 +90,7 @@ describe("dashboard analytics", () => {
       isFocus: true,
     })
     expect(analytics.timeline.find((item) => item.month === "2026-05")?.totalAmountCents).toBe(0)
+    expect(analytics.timeline.find((item) => item.month === "2026-02")?.shortLabel).toMatch(/\/26$/)
   })
 
   it("recenters the window when focus is outside the default range", () => {
@@ -89,6 +117,25 @@ describe("dashboard analytics", () => {
     })
     expect(analytics.rankings.duration[0]?.description).toBe("Notebook")
     expect(analytics.rankings.total[0]?.description).toBe("Curso")
+  })
+
+  it("keeps residual cents in rankings and zeroes completed balances", () => {
+    const analytics = build([
+      purchase({ id: "residual", description: "Residual", total_amount_cents: 1000 }),
+      purchase({
+        id: "completed",
+        description: "Concluída",
+        first_installment_month: "2025-01-01",
+        installment_count: 1,
+        total_amount_cents: 100,
+      }),
+    ])
+
+    expect(analytics.rankings.installment.find((item) => item.id === "residual"))
+      .toMatchObject({ installmentAmountCents: 334 })
+    expect(analytics.rankings.remaining.find((item) => item.id === "completed"))
+      .toMatchObject({ remainingAmountCents: 0, remainingInstallments: 0 })
+    expect(analytics.rankings.remaining.at(-1)?.id).toBe("completed")
   })
 
   it("finds the peak and next net drop", () => {
@@ -129,7 +176,58 @@ describe("dashboard analytics", () => {
       description: "Outros",
       isOther: true,
       amountCents: 300,
+      percentage: 11,
     })
+  })
+
+  it("keeps analytics percentages exact for zero, full and tiny sources", () => {
+    const onlyMonthly = build([], "2026-02", [monthlyExpense()])
+    expect(onlyMonthly.focusComposition).toMatchObject({
+      totalAmountCents: 99,
+      installmentPercentage: 0,
+      monthlyPercentage: 100,
+    })
+    expect(onlyMonthly.monthlyImpacts[0]?.percentage).toBe(100)
+
+    const onlyInstallment = build([
+      purchase({ installment_count: 1, total_amount_cents: 100 }),
+    ])
+    expect(onlyInstallment.focusComposition).toMatchObject({
+      totalAmountCents: 100,
+      installmentPercentage: 100,
+      monthlyPercentage: 0,
+    })
+
+    const tinyInstallment = build(
+      [purchase({ installment_count: 1, total_amount_cents: 1 })],
+      "2026-02",
+      [monthlyExpense({ amount_cents: 99 })]
+    )
+    expect(tinyInstallment.focusComposition).toMatchObject({
+      installmentPercentage: 1,
+      monthlyPercentage: 99,
+    })
+    expect(
+      tinyInstallment.monthlyImpacts.find((item) => item.description === "Notebook")?.percentage
+    ).toBe(1)
+  })
+
+  it("calculates the future range for historical, current and future windows", () => {
+    const timeline = [
+      { month: "2025-01" },
+      { month: "2025-02" },
+      { month: "2025-03" },
+    ]
+
+    expect(getTimelineFutureRange(timeline, "2024-12")).toEqual({
+      startMonth: "2025-01",
+      endMonth: "2025-03",
+    })
+    expect(getTimelineFutureRange(timeline, "2025-02")).toEqual({
+      startMonth: "2025-02",
+      endMonth: "2025-03",
+    })
+    expect(getTimelineFutureRange(timeline, "2025-04")).toBeNull()
   })
 
   it("returns neutral insights without commitments", () => {
@@ -138,5 +236,11 @@ describe("dashboard analytics", () => {
     expect(analytics.insights.peak).toBeNull()
     expect(analytics.insights.nextDrop).toBeNull()
     expect(analytics.insights.monthlyBasePercentage).toBe(0)
+  })
+
+  it("returns no future drop for a stable monthly commitment", () => {
+    const analytics = build([], "2026-02", [monthlyExpense({ end_month: null })])
+
+    expect(analytics.insights.nextDrop).toBeNull()
   })
 })

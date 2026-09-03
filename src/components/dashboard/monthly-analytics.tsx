@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import {
   CartesianGrid,
   Line,
@@ -17,19 +17,25 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import type {
-  DashboardAnalytics,
-  PurchaseRankingItem,
-  PurchaseRankingKey,
-  TimelinePoint,
+import {
+  getTimelineFutureRange,
+  type DashboardAnalytics,
+  type PurchaseRankingItem,
+  type PurchaseRankingKey,
+  type TimelinePoint,
 } from "@/lib/analytics"
-import { resolveDashboardHref } from "@/lib/dashboard-url"
+import { resolveDashboardMonthHref } from "@/lib/dashboard-url"
 import {
   formatCurrencyFromCents,
   formatMonthLabel,
 } from "@/lib/purchases"
 import { cn } from "@/lib/utils"
 
+/*
+ * Ranking tabs are deliberately kept as a small, self-contained client
+ * interaction. The selected tab is still rendered as a real tabpanel so the
+ * ranking remains available to keyboard and assistive-technology users.
+ */
 type MonthlyAnalyticsProps = {
   analytics: DashboardAnalytics
   focusMonth: string
@@ -52,6 +58,10 @@ function formatCompactCurrency(value: number) {
     notation: "compact",
     maximumFractionDigits: value >= 100_000 ? 0 : 1,
   }).format(value / 100)
+}
+
+function getVisualPercentage(value: number, hasValue: boolean) {
+  return hasValue ? Math.max(value, 2) : 0
 }
 
 function TimelineTooltip({ active, payload }: TooltipContentProps) {
@@ -140,20 +150,114 @@ function rankingHelper(item: PurchaseRankingItem, key: PurchaseRankingKey) {
   return `${item.installmentCount} parcelas · ${formatCurrencyFromCents(item.remainingAmountCents)} restantes`
 }
 
+function rankingNumericValue(item: PurchaseRankingItem, key: PurchaseRankingKey) {
+  if (key === "installment") return item.installmentAmountCents
+  if (key === "total") return item.totalAmountCents
+  if (key === "duration") return item.installmentCount
+  return item.remainingAmountCents
+}
+
+function RankingPanel({
+  active,
+  analytics,
+  criterion,
+}: {
+  active: boolean
+  analytics: DashboardAnalytics
+  criterion: PurchaseRankingKey
+}) {
+  const items = analytics.rankings[criterion]
+  const maxValue = items.reduce(
+    (max, item) => Math.max(max, rankingNumericValue(item, criterion)),
+    0
+  )
+
+  return (
+    <div
+      id={`ranking-panel-${criterion}`}
+      role="tabpanel"
+      aria-labelledby={`ranking-tab-${criterion}`}
+      tabIndex={active ? 0 : -1}
+      hidden={!active}
+      className="outline-none"
+    >
+      {items.length === 0 ? (
+        <p className="mt-4 rounded-md border border-dashed border-border bg-muted p-4 text-sm text-muted-foreground">
+          Nenhuma compra disponível para comparar.
+        </p>
+      ) : (
+        <ol className="mt-4 grid gap-2">
+          {items.map((item, index) => {
+            const value = rankingNumericValue(item, criterion)
+            const width = maxValue <= 0 ? 0 : Math.max(4, (value / maxValue) * 100)
+
+            return (
+              <li key={item.id} className="relative overflow-hidden rounded-md border border-border p-3">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 bg-[var(--chart-1)]/10"
+                  style={{ width: `${width}%` }}
+                />
+                <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                  <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                        {item.description}
+                      </span>
+                      <PurchaseStatusBadge status={item.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {rankingHelper(item, criterion)}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {rankingValue(item, criterion)}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 function PurchaseRanking({ analytics }: { analytics: DashboardAnalytics }) {
   const [criterion, setCriterion] = useState<PurchaseRankingKey>("installment")
-  const items = analytics.rankings[criterion]
-  const maxValue = items.reduce((max, item) => {
-    const value =
-      criterion === "installment"
-        ? item.installmentAmountCents
-        : criterion === "total"
-          ? item.totalAmountCents
-          : criterion === "duration"
-            ? item.installmentCount
-            : item.remainingAmountCents
-    return Math.max(max, value)
-  }, 0)
+  const tabRefs = useRef<Partial<Record<PurchaseRankingKey, HTMLButtonElement>>>({})
+
+  function selectCriterion(nextCriterion: PurchaseRankingKey) {
+    setCriterion(nextCriterion)
+    tabRefs.current[nextCriterion]?.focus()
+  }
+
+  function handleTabKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    key: PurchaseRankingKey
+  ) {
+    const keys = Object.keys(rankingLabels) as PurchaseRankingKey[]
+    const currentIndex = keys.indexOf(key)
+    let nextIndex = currentIndex
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      nextIndex = (currentIndex + 1) % keys.length
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      nextIndex = (currentIndex - 1 + keys.length) % keys.length
+    } else if (event.key === "Home") {
+      nextIndex = 0
+    } else if (event.key === "End") {
+      nextIndex = keys.length - 1
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    selectCriterion(keys[nextIndex])
+  }
 
   return (
     <section className="rounded-lg border border-border bg-card p-4">
@@ -175,10 +279,17 @@ function PurchaseRanking({ analytics }: { analytics: DashboardAnalytics }) {
         {(Object.keys(rankingLabels) as PurchaseRankingKey[]).map((key) => (
           <button
             key={key}
+            id={`ranking-tab-${key}`}
             type="button"
             role="tab"
+            aria-controls={`ranking-panel-${key}`}
             aria-selected={criterion === key}
-            onClick={() => setCriterion(key)}
+            tabIndex={criterion === key ? 0 : -1}
+            ref={(element) => {
+              tabRefs.current[key] = element ?? undefined
+            }}
+            onClick={() => selectCriterion(key)}
+            onKeyDown={(event) => handleTabKeyDown(event, key)}
             className={cn(
               "rounded-sm px-2 py-2 text-xs font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none",
               criterion === key
@@ -191,52 +302,14 @@ function PurchaseRanking({ analytics }: { analytics: DashboardAnalytics }) {
         ))}
       </div>
 
-      {items.length === 0 ? (
-        <p className="mt-4 rounded-md border border-dashed border-border bg-muted p-4 text-sm text-muted-foreground">
-          Nenhuma compra disponível para comparar.
-        </p>
-      ) : (
-        <ol className="mt-4 grid gap-2">
-          {items.map((item, index) => {
-            const value =
-              criterion === "installment"
-                ? item.installmentAmountCents
-                : criterion === "total"
-                  ? item.totalAmountCents
-                  : criterion === "duration"
-                    ? item.installmentCount
-                    : item.remainingAmountCents
-            const width = maxValue <= 0 ? 0 : Math.max(4, (value / maxValue) * 100)
-
-            return (
-              <li key={item.id} className="relative overflow-hidden rounded-md border border-border p-3">
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-y-0 left-0 bg-[var(--chart-1)]/10"
-                  style={{ width: `${width}%` }}
-                />
-                <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                  <span className="text-xs font-medium tabular-nums text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-sm font-medium">{item.description}</span>
-                      <PurchaseStatusBadge status={item.status} />
-                    </div>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {rankingHelper(item, criterion)}
-                    </p>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums">
-                    {rankingValue(item, criterion)}
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ol>
-      )}
+      {(Object.keys(rankingLabels) as PurchaseRankingKey[]).map((key) => (
+        <RankingPanel
+          key={key}
+          active={criterion === key}
+          analytics={analytics}
+          criterion={key}
+        />
+      ))}
     </section>
   )
 }
@@ -249,11 +322,14 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
   const searchParamsString = searchParams.toString()
   const focus = analytics.timeline.find((point) => point.isFocus)
   const current = analytics.timeline.find((point) => point.isCurrent)
-  const futureStart = current?.month ?? analytics.timeline[0]?.month
+  const futureRange = getTimelineFutureRange(analytics.timeline, analytics.currentMonth)
 
   function selectMonth(month: string) {
     if (!month || month === focusMonth) return
-    router.replace(resolveDashboardHref(pathname, searchParamsString, { month }), {
+    const currentHref = searchParamsString
+      ? `${pathname}?${searchParamsString}`
+      : pathname
+    router.replace(resolveDashboardMonthHref(currentHref, month), {
       scroll: false,
     })
   }
@@ -316,10 +392,10 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
                     if (typeof month === "string") selectMonth(month)
                   }}
                 >
-                  {futureStart ? (
+                  {futureRange ? (
                     <ReferenceArea
-                      x1={futureStart}
-                      x2={analytics.timeline.at(-1)?.month}
+                      x1={futureRange.startMonth}
+                      x2={futureRange.endMonth}
                       fill="var(--chart-2)"
                       fillOpacity={0.05}
                     />
@@ -353,7 +429,11 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
                       }}
                     />
                   ) : null}
-                  <Tooltip content={<TimelineTooltip />} cursor={{ stroke: "var(--border)" }} />
+                  <Tooltip
+                    content={<TimelineTooltip />}
+                    cursor={{ stroke: "var(--border)" }}
+                    isAnimationActive={false}
+                  />
                   <Line
                     type="monotone"
                     dataKey="totalAmountCents"
@@ -414,11 +494,21 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
           <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <span
               className="bg-[var(--chart-1)]"
-              style={{ width: `${composition.installmentPercentage}%` }}
+              style={{
+                width: `${getVisualPercentage(
+                  composition.installmentPercentage,
+                  composition.installmentAmountCents > 0
+                )}%`,
+              }}
             />
             <span
               className="bg-[var(--chart-2)]"
-              style={{ width: `${composition.monthlyPercentage}%` }}
+              style={{
+                width: `${getVisualPercentage(
+                  composition.monthlyPercentage,
+                  composition.monthlyAmountCents > 0
+                )}%`,
+              }}
             />
           </div>
           <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
@@ -502,14 +592,16 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
                       "absolute inset-y-0 left-0",
                       item.isOther ? "bg-muted" : "bg-[var(--chart-2)]/15"
                     )}
-                    style={{ width: `${item.percentage}%` }}
+                    style={{
+                      width: `${getVisualPercentage(item.percentage, item.amountCents > 0)}%`,
+                    }}
                   />
                   <div className="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
                     <span className="text-xs font-medium tabular-nums text-muted-foreground">
                       {index + 1}
                     </span>
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium">{item.description}</div>
+                      <div className="break-words text-sm font-medium">{item.description}</div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         {item.detail} · {item.percentage}% do mês
                       </div>
@@ -544,7 +636,7 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
               return (
                 <div key={card.card_id}>
                   <div className="flex items-center justify-between gap-4 text-sm">
-                    <span>{card.card_name}</span>
+                    <span className="min-w-0 break-words">{card.card_name}</span>
                     <span className="font-medium tabular-nums">
                       {formatCurrencyFromCents(card.total_amount_cents)}
                     </span>
@@ -552,7 +644,12 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full bg-[var(--chart-1)]"
-                      style={{ width: `${percentage}%` }}
+                      style={{
+                        width: `${getVisualPercentage(
+                          percentage,
+                          card.total_amount_cents > 0
+                        )}%`,
+                      }}
                     />
                   </div>
                 </div>
@@ -569,7 +666,11 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
             <li key={point.month}>
               {point.monthLabel}: {formatCurrencyFromCents(point.totalAmountCents)},
               com {formatCurrencyFromCents(point.installmentTotalCents)} em parcelas e{" "}
-              {formatCurrencyFromCents(point.monthlyTotalCents)} em mensalidades.
+              {formatCurrencyFromCents(point.monthlyTotalCents)} em mensalidades; {point.itemCount}{" "}
+              {point.itemCount === 1 ? "item" : "itens"};{" "}
+              {point.topItemDescription
+                ? `maior impacto ${point.topItemDescription}, ${formatCurrencyFromCents(point.topItemAmountCents)}`
+                : "sem maior impacto"}.
             </li>
           ))}
         </ul>

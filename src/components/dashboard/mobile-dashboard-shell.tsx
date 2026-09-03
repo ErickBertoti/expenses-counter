@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   CalendarClockIcon,
   CalendarRangeIcon,
@@ -52,6 +52,7 @@ import {
   getInstallmentAmountForMonth,
   getMonthlyExpensePeriodLabel,
 } from "@/lib/purchases"
+import { resolveDashboardMonthHref } from "@/lib/dashboard-url"
 import type {
   DashboardView,
   MonthlyExpenseFormValues,
@@ -236,15 +237,15 @@ function MobilePurchaseCard({
 }
 
 function MobileSummaryCard({
-  filtersBase,
   isFocusMonth,
+  returnTo,
   summary,
 }: {
-  filtersBase: DashboardBaseFilters
   isFocusMonth: boolean
+  returnTo: string
   summary: DashboardData["analytics"]["monthlyRows"][number]
 }) {
-  const monthHref = buildReturnToPath(filtersBase, { month: summary.month })
+  const monthHref = resolveDashboardMonthHref(returnTo, summary.month)
 
   return (
     <article className="rounded-md border border-border bg-card p-4">
@@ -261,7 +262,15 @@ function MobileSummaryCard({
             {isFocusMonth ? <Badge variant="secondary">Em foco</Badge> : null}
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {summary.itemCount} itens · maior impacto {summary.topItemDescription ?? "não disponível"}
+            {summary.itemCount} itens · maior impacto{" "}
+            {summary.topItemDescription ? (
+              <>
+                <span className="break-words text-foreground">{summary.topItemDescription}</span>{" "}
+                · {formatCurrencyFromCents(summary.topItemAmountCents)}
+              </>
+            ) : (
+              "não disponível"
+            )}
           </p>
         </div>
         <div className="text-right">
@@ -279,6 +288,11 @@ function MobileSummaryCard({
           <dd className="mt-1 font-medium tabular-nums">
             {summary.deltaAmountCents > 0 ? "+" : summary.deltaAmountCents < 0 ? "−" : ""}
             {formatCurrencyFromCents(Math.abs(summary.deltaAmountCents))}
+            <span className="block text-[11px] text-muted-foreground">
+              {summary.deltaPercentage === null
+                ? "sem base anterior"
+                : `${summary.deltaPercentage > 0 ? "+" : ""}${summary.deltaPercentage}%`}
+            </span>
           </dd>
         </div>
         <div>
@@ -388,10 +402,18 @@ export function MobileDashboardShell({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [purchaseSort, setPurchaseSort] = useState("default")
   const purchaseSignature = dashboard.purchases
-    .map((purchase) => purchase.id)
+    .map((purchase) => `${purchase.id}:${purchase.updated_at}`)
     .join(":")
+  const purchaseSortContext = `${dashboard.focusMonth}:${purchaseSignature}`
+  const [purchaseSortState, setPurchaseSortState] = useState({
+    context: "",
+    value: "default",
+  })
+  const purchaseSort =
+    purchaseSortState.context === purchaseSortContext
+      ? purchaseSortState.value
+      : "default"
   const composeMode = searchParams.get("compose")
   const editId = searchParams.get("edit")
   const monthlyEditId = searchParams.get("editMonthly")
@@ -422,9 +444,6 @@ export function MobileDashboardShell({
     return sortPurchases(dashboard.purchases, dashboard.focusMonth, key, direction)
   }, [dashboard.focusMonth, dashboard.purchases, purchaseSort])
 
-  useEffect(() => {
-    setPurchaseSort("default")
-  }, [dashboard.focusMonth, purchaseSignature])
   const newPurchaseHref = buildReturnToPath(filtersBase, {
     compose: "1",
   })
@@ -673,7 +692,7 @@ export function MobileDashboardShell({
             dashboard.analytics.monthlyRows.map((summary) => (
               <MobileSummaryCard
                 key={summary.month}
-                filtersBase={filtersBase}
+                returnTo={returnTo}
                 summary={summary}
                 isFocusMonth={summary.month === dashboard.focusMonth}
               />
@@ -711,7 +730,12 @@ export function MobileDashboardShell({
               <span className="text-muted-foreground">Ordenar compras</span>
               <select
                 value={purchaseSort}
-                onChange={(event) => setPurchaseSort(event.target.value)}
+                onChange={(event) =>
+                  setPurchaseSortState({
+                    context: purchaseSortContext,
+                    value: event.target.value,
+                  })
+                }
                 className="min-w-0 max-w-48 rounded-sm border border-input bg-background px-2 py-1.5 text-right text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="default">Ordem padrão</option>

@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { DashboardData } from "@/lib/dashboard"
+import { resolveDashboardMonthHref } from "@/lib/dashboard-url"
 import {
   buildReturnToPath,
   formatCurrencyFromCents,
@@ -534,9 +535,10 @@ export function DesktopDashboard({
                         <TableBody>
                           {dashboard.analytics.monthlyRows.map((summary) => {
                             const isFocusMonth = summary.month === dashboard.focusMonth
-                            const monthHref = buildReturnToPath(dashboard.filters, {
-                              month: summary.month,
-                            })
+                            const monthHref = resolveDashboardMonthHref(
+                              returnTo,
+                              summary.month
+                            )
 
                             return (
                               <TableRow key={summary.month}>
@@ -577,7 +579,9 @@ export function DesktopDashboard({
                                 <TableCell className="max-w-56">
                                   {summary.topItemDescription ? (
                                     <div className="min-w-0">
-                                      <div className="truncate">{summary.topItemDescription}</div>
+                                      <div className="break-words" title={summary.topItemDescription}>
+                                        {summary.topItemDescription}
+                                      </div>
                                       <div className="mt-0.5 text-xs text-muted-foreground tabular-nums">
                                         {formatCurrencyFromCents(summary.topItemAmountCents)}
                                       </div>

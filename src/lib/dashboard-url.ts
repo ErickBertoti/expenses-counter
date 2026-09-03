@@ -27,3 +27,8 @@ export function resolveDashboardHref(
   const nextQuery = params.toString()
   return nextQuery ? `${pathname}?${nextQuery}` : pathname
 }
+
+export function resolveDashboardMonthHref(baseHref: string, month: string) {
+  const baseUrl = new URL(baseHref, "https://dashboard.local")
+  return resolveDashboardHref(baseUrl.pathname, baseUrl.search.slice(1), { month })
+}
