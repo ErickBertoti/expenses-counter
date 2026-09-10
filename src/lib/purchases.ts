@@ -10,14 +10,8 @@ import type {
   PurchaseWithProgress,
 } from "@/lib/types"
 
-const PERSISTED_MONTH_PATTERN = /^\d{4}-\d{2}$/
-const CALCULATED_MONTH_PATTERN = /^\d{4,6}-\d{2}$/
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const APP_TIME_ZONE = "America/Sao_Paulo"
-const MIN_CALCULATED_MONTH_YEAR = 1
-const MAX_CALCULATED_MONTH_YEAR = 999999
-const MAX_AMOUNT_CENTS = 2_147_483_647
-const MAX_INSTALLMENT_COUNT = 120
 const DASHBOARD_VIEWS = new Set<DashboardView>([
   "purchases",
   "summary",
@@ -42,58 +36,25 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 })
 
-const appDateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  timeZone: APP_TIME_ZONE,
-})
-
 function padMonth(value: number) {
   return String(value).padStart(2, "0")
 }
 
-function assertCalculatedMonthKey(monthKey: string) {
-  if (!CALCULATED_MONTH_PATTERN.test(monthKey)) {
+function assertMonthKey(monthKey: string) {
+  if (!MONTH_PATTERN.test(monthKey)) {
     throw new Error(`Invalid month key: ${monthKey}`)
   }
 
   const [year, month] = monthKey.split("-").map(Number)
-  if (
-    !Number.isInteger(year) ||
-    year < MIN_CALCULATED_MONTH_YEAR ||
-    year > MAX_CALCULATED_MONTH_YEAR ||
-    month < 1 ||
-    month > 12
-  ) {
+  if (month < 1 || month > 12) {
     throw new Error(`Invalid month key: ${monthKey}`)
   }
 
   return { year, month }
 }
 
-function assertPersistedMonthKey(monthKey: string) {
-  if (!PERSISTED_MONTH_PATTERN.test(monthKey)) {
-    throw new Error(`Invalid persisted month key: ${monthKey}`)
-  }
-
-  return assertCalculatedMonthKey(monthKey)
-}
-
 function assertDateValue(dateValue: string) {
   if (!DATE_PATTERN.test(dateValue)) {
-    throw new Error(`Invalid date value: ${dateValue}`)
-  }
-
-  if (Number(dateValue.slice(0, 4)) < MIN_CALCULATED_MONTH_YEAR) {
-    throw new Error(`Invalid date value: ${dateValue}`)
-  }
-
-  const parsedDate = new Date(`${dateValue}T00:00:00Z`)
-  if (
-    Number.isNaN(parsedDate.getTime()) ||
-    parsedDate.toISOString().slice(0, 10) !== dateValue
-  ) {
     throw new Error(`Invalid date value: ${dateValue}`)
   }
 
@@ -126,55 +87,15 @@ function normalizeMonthValue(value: string) {
 
 export function isValidMonthKey(value: string) {
   try {
-    assertPersistedMonthKey(value)
+    assertMonthKey(value)
     return true
   } catch {
     return false
   }
-}
-
-export function isValidDateValue(value: string) {
-  try {
-    assertDateValue(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-export function isValidInstallmentSchedule(
-  firstInstallmentMonth: string,
-  installmentCount: number
-) {
-  if (
-    !isValidMonthKey(firstInstallmentMonth) ||
-    !Number.isInteger(installmentCount) ||
-    installmentCount < 1 ||
-    installmentCount > MAX_INSTALLMENT_COUNT
-  ) {
-    return false
-  }
-
-  return isValidMonthKey(
-    addMonthsToMonthKey(firstInstallmentMonth, installmentCount - 1)
-  )
 }
 
 export function getCurrentMonthKey(referenceDate = new Date()) {
-  return getCurrentDateValue(referenceDate).slice(0, 7)
-}
-
-export function getCurrentDateValue(referenceDate = new Date()) {
-  const parts = appDateFormatter.formatToParts(referenceDate)
-  const year = parts.find((part) => part.type === "year")?.value
-  const month = parts.find((part) => part.type === "month")?.value
-  const day = parts.find((part) => part.type === "day")?.value
-
-  if (!year || !month || !day) {
-    throw new Error("Unable to determine the current application date")
-  }
-
-  return `${year.padStart(4, "0")}-${month}-${day}`
+  return `${referenceDate.getFullYear()}-${padMonth(referenceDate.getMonth() + 1)}`
 }
 
 export function monthKeyFromDate(dateValue: string) {
@@ -182,25 +103,17 @@ export function monthKeyFromDate(dateValue: string) {
 }
 
 export function addMonthsToMonthKey(monthKey: string, delta: number) {
-  const { year, month } = assertCalculatedMonthKey(monthKey)
-  if (!Number.isSafeInteger(delta)) {
-    throw new Error(`Invalid month delta: ${delta}`)
-  }
-
+  const { year, month } = assertMonthKey(monthKey)
   const nextMonthIndex = year * 12 + (month - 1) + delta
   const nextYear = Math.floor(nextMonthIndex / 12)
   const nextMonth = (nextMonthIndex % 12) + 1
 
-  if (nextYear < 0 || nextYear > MAX_CALCULATED_MONTH_YEAR) {
-    throw new Error(`Month key is outside the supported range: ${monthKey}`)
-  }
-
-  return `${String(nextYear).padStart(4, "0")}-${padMonth(nextMonth)}`
+  return `${nextYear}-${padMonth(nextMonth)}`
 }
 
 export function compareMonthKeys(left: string, right: string) {
-  const leftParts = assertCalculatedMonthKey(left)
-  const rightParts = assertCalculatedMonthKey(right)
+  const leftParts = assertMonthKey(left)
+  const rightParts = assertMonthKey(right)
 
   if (leftParts.year !== rightParts.year) {
     return leftParts.year - rightParts.year
@@ -210,8 +123,8 @@ export function compareMonthKeys(left: string, right: string) {
 }
 
 export function monthsBetween(startMonthKey: string, endMonthKey: string) {
-  const start = assertCalculatedMonthKey(startMonthKey)
-  const end = assertCalculatedMonthKey(endMonthKey)
+  const start = assertMonthKey(startMonthKey)
+  const end = assertMonthKey(endMonthKey)
 
   return (end.year - start.year) * 12 + (end.month - start.month)
 }
@@ -732,12 +645,8 @@ export function formatCurrencyFromCents(value: number) {
 }
 
 export function formatMonthLabel(monthKey: string) {
-  const { year, month } = assertCalculatedMonthKey(monthKey)
-  const date = new Date(0)
-  date.setUTCFullYear(year, month - 1, 1)
-  date.setUTCHours(0, 0, 0, 0)
-
-  return capitalizeLabel(monthFormatter.format(date))
+  const { year, month } = assertMonthKey(monthKey)
+  return capitalizeLabel(monthFormatter.format(new Date(Date.UTC(year, month - 1, 1))))
 }
 
 export function formatDateLabel(dateValue: string) {
@@ -750,67 +659,33 @@ export function formatCentsForInput(value: number) {
 }
 
 export function parseCurrencyInputToCents(rawValue: string) {
-  let sanitized = rawValue.trim()
-  if (/^R\$\s*/i.test(sanitized)) {
-    sanitized = sanitized.replace(/^R\$\s*/i, "")
-  }
-
-  if (!sanitized || /[^\d.,]/.test(sanitized)) {
+  const sanitized = rawValue.replace(/[^\d,.-]/g, "").trim()
+  if (!sanitized) {
     return null
   }
 
-  let integerPart = sanitized
-  let decimalPart = ""
+  const lastCommaIndex = sanitized.lastIndexOf(",")
+  const lastDotIndex = sanitized.lastIndexOf(".")
+  const decimalSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex)
 
-  const groupedIntegerMatch = /^(\d{1,3})([.,]\d{3})+$/.test(sanitized)
-  if (groupedIntegerMatch) {
-    const separators = sanitized.match(/[.,]/g) ?? []
-    if (separators.every((separator) => separator === separators[0])) {
-      integerPart = sanitized.replace(/[.,]/g, "")
-    } else {
-      return null
-    }
-  } else if (!/^\d+$/.test(sanitized)) {
-    const lastCommaIndex = sanitized.lastIndexOf(",")
-    const lastDotIndex = sanitized.lastIndexOf(".")
-    const decimalSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex)
-    const decimalSeparator = sanitized[decimalSeparatorIndex]
+  let normalized = sanitized
+  if (decimalSeparatorIndex >= 0) {
+    const integerPart = sanitized.slice(0, decimalSeparatorIndex).replace(/[.,]/g, "")
+    const decimalPart = sanitized.slice(decimalSeparatorIndex + 1).replace(/[.,]/g, "")
 
-    integerPart = sanitized.slice(0, decimalSeparatorIndex)
-    decimalPart = sanitized.slice(decimalSeparatorIndex + 1)
-
-    if (!/^\d{1,2}$/.test(decimalPart)) {
-      return null
-    }
-
-    if (integerPart.includes(",") || integerPart.includes(".")) {
-      if (!/^\d{1,3}([.,]\d{3})+$/.test(integerPart)) {
-        return null
-      }
-
-      const groupingSeparators = integerPart.match(/[.,]/g) ?? []
-      if (
-        !groupingSeparators.every(
-          (separator) => separator === groupingSeparators[0]
-        ) ||
-        groupingSeparators[0] === decimalSeparator
-      ) {
-        return null
-      }
-
-      integerPart = integerPart.replace(/[.,]/g, "")
-    } else if (!/^\d+$/.test(integerPart)) {
-      return null
-    }
+    normalized = `${integerPart}.${decimalPart}`
   }
 
-  const amountCents =
-    BigInt(integerPart) * BigInt(100) + BigInt(decimalPart.padEnd(2, "0") || "0")
-  if (amountCents > BigInt(MAX_AMOUNT_CENTS)) {
+  if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) {
     return null
   }
 
-  return Number(amountCents)
+  const parsedValue = Number(normalized)
+  if (!Number.isFinite(parsedValue)) {
+    return null
+  }
+
+  return Math.round(parsedValue * 100)
 }
 
 export function parseDashboardFilters(
@@ -887,17 +762,8 @@ export function sanitizeRedirectPath(value: string | null | undefined) {
     !value ||
     !value.startsWith("/") ||
     value.startsWith("//") ||
-    /[\\\r\n]/.test(value)
+    value.includes("\\")
   ) {
-    return "/"
-  }
-
-  try {
-    const resolvedUrl = new URL(value, "http://expenses-counter.local")
-    if (resolvedUrl.origin !== "http://expenses-counter.local") {
-      return "/"
-    }
-  } catch {
     return "/"
   }
 
