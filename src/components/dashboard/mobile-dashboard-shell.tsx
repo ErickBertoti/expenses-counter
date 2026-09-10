@@ -18,12 +18,16 @@ import {
   MonthlyExpenseDisabledToggleButton,
   PurchaseDisabledToggleButton,
 } from "@/components/dashboard/delete-purchase-button"
+import { DashboardViewTabs } from "@/components/dashboard/dashboard-view-tabs"
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
 import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
 import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
-import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
+import {
+  ExpenseStatusBadge,
+  PurchaseStatusBadge,
+} from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -337,10 +341,7 @@ function MobileMonthlyExpenseCard({
             <h3 className="min-w-0 flex-1 truncate text-sm font-medium">
               {monthlyExpense.description}
             </h3>
-            <Badge variant={monthlyExpense.is_disabled ? "disabled" : "active"}>
-              <span className="size-1.5 rounded-full bg-current opacity-70" />
-              {monthlyExpense.is_disabled ? "Desativada" : "Ativa"}
-            </Badge>
+            <ExpenseStatusBadge status={monthlyExpense.status} />
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{monthlyExpense.card_name}</Badge>
@@ -456,18 +457,6 @@ export function MobileDashboardShell({
       compose: "monthly",
     }
   )
-  const purchasesViewHref = buildReturnToPath({
-    ...filtersBase,
-    view: "purchases",
-  })
-  const summaryViewHref = buildReturnToPath({
-    ...filtersBase,
-    view: "summary",
-  })
-  const monthlyViewHref = buildReturnToPath({
-    ...filtersBase,
-    view: "monthly",
-  })
   const clearFiltersHref = buildReturnToPath({
     query: "",
     status: "all",
@@ -589,55 +578,12 @@ export function MobileDashboardShell({
         <MobileMetric
           label="Mensalidades"
           value={String(dashboard.activeMonthlyExpenseCount)}
-          helper="Custos recorrentes habilitados nos filtros."
+          helper="Mensalidades em andamento nos filtros."
         />
       </section>
 
       <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-1">
-          <Link
-            href={purchasesViewHref}
-            scroll={false}
-            className={cn(
-              buttonVariants({
-                variant:
-                  dashboard.filters.view === "purchases" ? "secondary" : "ghost",
-                size: "sm",
-              }),
-              "min-w-0 flex-1 justify-center"
-            )}
-          >
-            Compras
-          </Link>
-          <Link
-            href={summaryViewHref}
-            scroll={false}
-            className={cn(
-              buttonVariants({
-                variant:
-                  dashboard.filters.view === "summary" ? "secondary" : "ghost",
-                size: "sm",
-              }),
-              "min-w-0 flex-1 justify-center"
-            )}
-          >
-            Resumo
-          </Link>
-          <Link
-            href={monthlyViewHref}
-            scroll={false}
-            className={cn(
-              buttonVariants({
-                variant:
-                  dashboard.filters.view === "monthly" ? "secondary" : "ghost",
-                size: "sm",
-              }),
-              "min-w-0 flex-1 justify-center"
-            )}
-          >
-            Mensais
-          </Link>
-        </div>
+        <DashboardViewTabs filters={filtersBase} />
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {activeFilters.length > 0 ? (

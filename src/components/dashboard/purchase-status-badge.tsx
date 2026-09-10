@@ -1,10 +1,10 @@
 import { Badge } from "@/components/ui/badge"
-import type { PurchaseWithProgress } from "@/lib/types"
+import type { ExpenseStatus } from "@/lib/types"
 
-export function PurchaseStatusBadge({
+export function ExpenseStatusBadge({
   status,
 }: {
-  status: PurchaseWithProgress["status"]
+  status: ExpenseStatus
 }) {
   const variant =
     status === "active" ? "active" : status === "disabled" ? "disabled" : "completed"
@@ -19,4 +19,8 @@ export function PurchaseStatusBadge({
           : "Concluída"}
     </Badge>
   )
+}
+
+export function PurchaseStatusBadge({ status }: { status: ExpenseStatus }) {
+  return <ExpenseStatusBadge status={status} />
 }

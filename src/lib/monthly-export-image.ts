@@ -194,7 +194,8 @@ function prepareExpenses(
 function measureHeight(
   model: MonthlyExportModel,
   purchases: PreparedPurchase[],
-  monthlyExpenses: PreparedExpense[]
+  monthlyExpenses: PreparedExpense[],
+  scopeLineCount: number
 ) {
   const byCardHeight = Math.max(model.by_card.length, 1) * 52
   const purchasesHeight =
@@ -211,6 +212,7 @@ function measureHeight(
 
   return (
     184 +
+    scopeLineCount * 30 +
     142 +
     100 +
     byCardHeight +
@@ -266,7 +268,8 @@ function drawDocument(
   context: CanvasRenderingContext2D,
   model: MonthlyExportModel,
   purchases: PreparedPurchase[],
-  monthlyExpenses: PreparedExpense[]
+  monthlyExpenses: PreparedExpense[],
+  scopeLines: string[]
 ) {
   const gradient = context.createLinearGradient(0, 0, WIDTH, 0)
   gradient.addColorStop(0, palette.burgundy)
@@ -288,7 +291,13 @@ function drawDocument(
   context.fillStyle = palette.text
   context.fillText(model.month_label, PADDING, 144)
 
-  let y = 188
+  setFont(context, 22, 600)
+  context.fillStyle = palette.muted
+  scopeLines.forEach((line, index) => {
+    context.fillText(line, PADDING, 177 + index * 30)
+  })
+
+  let y = 188 + scopeLines.length * 30
   const metricGap = 18
   const metricWidth = (CONTENT_WIDTH - metricGap * 2) / 3
   drawMetric(
@@ -498,7 +507,9 @@ function drawDocument(
   setFont(context, 23)
   context.fillStyle = palette.dim
   context.fillText(
-    "Itens desativados não entram neste resumo.",
+    model.includes_disabled
+      ? "Itens desativados foram incluídos conforme os filtros."
+      : "Itens desativados não entram neste resumo.",
     PADDING,
     context.canvas.height - 48
   )
@@ -517,7 +528,12 @@ export async function buildMonthlyExportPngBlob(model: MonthlyExportModel) {
     measureContext,
     model.monthly_expenses
   )
-  const height = Math.max(900, measureHeight(model, purchases, monthlyExpenses))
+  setFont(measureContext, 22, 600)
+  const scopeLines = wrapText(measureContext, model.scope_label, CONTENT_WIDTH)
+  const height = Math.max(
+    900,
+    measureHeight(model, purchases, monthlyExpenses, scopeLines.length)
+  )
   const canvas = document.createElement("canvas")
   canvas.width = WIDTH
   canvas.height = height
@@ -527,7 +543,7 @@ export async function buildMonthlyExportPngBlob(model: MonthlyExportModel) {
     throw new Error("Não foi possível gerar a imagem.")
   }
 
-  drawDocument(context, model, purchases, monthlyExpenses)
+  drawDocument(context, model, purchases, monthlyExpenses, scopeLines)
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

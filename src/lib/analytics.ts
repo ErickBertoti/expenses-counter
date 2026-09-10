@@ -9,6 +9,7 @@ import {
   compareMonthKeys,
   formatMonthLabel,
 } from "./purchases"
+import type { MonthlyBreakdownRange } from "./purchases"
 
 export type PurchaseRankingKey =
   | "installment"
@@ -34,6 +35,8 @@ export type TimelineFutureRange = {
   startMonth: string
   endMonth: string
 }
+
+export type DashboardProjectionRange = MonthlyBreakdownRange
 
 export type MonthlyImpactItem = {
   id: string
@@ -102,23 +105,20 @@ export function getTimelineFutureRange(
   timeline: Pick<TimelinePoint, "month">[],
   currentMonth: string
 ): TimelineFutureRange | null {
-  const startMonth = timeline[0]?.month
+  const currentIndex = timeline.findIndex((point) => point.month === currentMonth)
   const endMonth = timeline.at(-1)?.month
 
-  if (!startMonth || !endMonth) return null
-
-  if (compareMonthKeys(currentMonth, startMonth) <= 0) {
-    return { startMonth, endMonth }
-  }
-
-  if (compareMonthKeys(currentMonth, endMonth) > 0) {
+  if (currentIndex < 0 || !endMonth || currentIndex === timeline.length - 1) {
     return null
   }
 
   return { startMonth: currentMonth, endMonth }
 }
 
-function getTimelineStart(currentMonth: string, focusMonth: string) {
+export function getDashboardProjectionRange(
+  currentMonth: string,
+  focusMonth: string
+): DashboardProjectionRange {
   const defaultStart = addMonthsToMonthKey(currentMonth, -3)
   const defaultEnd = addMonthsToMonthKey(currentMonth, 12)
 
@@ -126,10 +126,16 @@ function getTimelineStart(currentMonth: string, focusMonth: string) {
     compareMonthKeys(focusMonth, defaultStart) < 0 ||
     compareMonthKeys(focusMonth, defaultEnd) > 0
   ) {
-    return addMonthsToMonthKey(focusMonth, -3)
+    return {
+      startMonth: addMonthsToMonthKey(focusMonth, -3),
+      endMonth: addMonthsToMonthKey(focusMonth, 12),
+    }
   }
 
-  return defaultStart
+  return {
+    startMonth: defaultStart,
+    endMonth: defaultEnd,
+  }
 }
 
 function getShortMonthLabel(month: string) {
@@ -239,10 +245,10 @@ function buildTimeline({
   focusMonth: string
 }) {
   const byMonth = new Map(breakdowns.map((breakdown) => [breakdown.month, breakdown]))
-  const start = getTimelineStart(currentMonth, focusMonth)
+  const { startMonth } = getDashboardProjectionRange(currentMonth, focusMonth)
 
   return Array.from({ length: 16 }, (_, index): TimelinePoint => {
-    const month = addMonthsToMonthKey(start, index)
+    const month = addMonthsToMonthKey(startMonth, index)
     const breakdown = byMonth.get(month)
     const topItem = breakdown?.line_items[0]
 

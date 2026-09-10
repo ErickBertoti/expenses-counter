@@ -3,6 +3,8 @@ import {
   getMonthlyExpensePeriodLabel,
 } from "./purchases"
 import type {
+  CardRecord,
+  DashboardFilters,
   MonthlyBreakdown,
   MonthlyExpenseWithCard,
   MonthlyExportModel,
@@ -11,8 +13,49 @@ import type {
 
 type BuildMonthlyExportModelInput = {
   breakdown: MonthlyBreakdown
+  includesDisabled: boolean
   monthlyExpenses: MonthlyExpenseWithCard[]
   purchases: PurchaseWithProgress[]
+  scopeLabel: string
+}
+
+function getStatusLabel(status: DashboardFilters["status"]) {
+  if (status === "active") return "Em andamento"
+  if (status === "completed") return "Concluídas"
+  if (status === "disabled") return "Desativadas"
+  return "Todos"
+}
+
+export function buildMonthlyExportScopeLabel({
+  cards,
+  filters,
+  includesDisabled,
+}: {
+  cards: Pick<CardRecord, "id" | "name">[]
+  filters: Pick<DashboardFilters, "cardId" | "query" | "status">
+  includesDisabled: boolean
+}) {
+  const appliedFilters: string[] = []
+
+  if (filters.query) {
+    appliedFilters.push(`busca "${filters.query}"`)
+  }
+
+  if (filters.status !== "all") {
+    appliedFilters.push(`status ${getStatusLabel(filters.status)}`)
+  }
+
+  if (filters.cardId) {
+    appliedFilters.push(
+      `cartão ${cards.find((card) => card.id === filters.cardId)?.name ?? "selecionado"}`
+    )
+  }
+
+  appliedFilters.push(
+    includesDisabled ? "desativadas incluídas" : "desativadas excluídas"
+  )
+
+  return `Escopo filtrado: ${appliedFilters.join("; ")}.`
 }
 
 function pluralize(count: number, singular: string, plural: string) {
@@ -25,8 +68,10 @@ export function getMonthlyExportFileName(model: Pick<MonthlyExportModel, "month"
 
 export function buildMonthlyExportModel({
   breakdown,
+  includesDisabled,
   monthlyExpenses,
   purchases,
+  scopeLabel,
 }: BuildMonthlyExportModelInput): MonthlyExportModel {
   const purchasesById = new Map(purchases.map((purchase) => [purchase.id, purchase]))
   const monthlyExpensesById = new Map(
@@ -80,6 +125,8 @@ export function buildMonthlyExportModel({
   return {
     month: breakdown.month,
     month_label: breakdown.month_label,
+    scope_label: scopeLabel,
+    includes_disabled: includesDisabled,
     total_amount_cents: breakdown.total_amount_cents,
     installment_total_cents: breakdown.installment_total_cents,
     monthly_total_cents: breakdown.monthly_total_cents,
@@ -107,6 +154,7 @@ function appendNotes(lines: string[], notes: string | null) {
 export function buildMonthlyExportText(model: MonthlyExportModel) {
   const lines = [
     `Resumo de ${model.month_label}`,
+    model.scope_label,
     "",
     `Total a pagar no mês: ${formatCurrencyFromCents(
       model.total_amount_cents
@@ -117,7 +165,7 @@ export function buildMonthlyExportText(model: MonthlyExportModel) {
     `Mensalidades: ${formatCurrencyFromCents(model.monthly_total_cents)} (${
       model.monthly_expense_count
     } ${pluralize(model.monthly_expense_count, "mensalidade", "mensalidades")})`,
-    `Itens no mês: ${model.item_count}`,
+    `Itens no escopo: ${model.item_count}`,
     "",
     "Por cartão:",
   ]
@@ -170,7 +218,12 @@ export function buildMonthlyExportText(model: MonthlyExportModel) {
     })
   }
 
-  lines.push("", "Itens desativados não entram neste resumo.")
+  lines.push(
+    "",
+    model.includes_disabled
+      ? "Itens desativados foram incluídos conforme os filtros."
+      : "Itens desativados não entram neste resumo."
+  )
 
   return lines.join("\n")
 }
