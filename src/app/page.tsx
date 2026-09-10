@@ -4,6 +4,7 @@ import { getDashboardData } from "@/lib/dashboard"
 import {
   buildReturnToPath,
   formatCentsForInput,
+  getCurrentDateValue,
   getCurrentMonthKey,
 } from "@/lib/purchases"
 import type { MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
@@ -40,7 +41,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       }
     : {
         description: "",
-        purchaseDate: new Date().toISOString().slice(0, 10),
+        purchaseDate: getCurrentDateValue(),
         firstInstallmentMonth: dashboard.filters.month || currentMonth,
         installmentCount: 1,
         totalAmount: "",
