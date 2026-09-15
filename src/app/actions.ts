@@ -8,6 +8,9 @@ import { z } from "zod"
 import { createClient } from "@/lib/server"
 import { resolveAppOrigin } from "@/lib/app-origin"
 import {
+  isValidDateValue,
+  isValidInstallmentSchedule,
+  isValidMonthKey,
   monthKeyFromDate,
   parseCurrencyInputToCents,
   sanitizeRedirectPath,
@@ -55,10 +58,15 @@ const purchaseFormSchema = z
       .max(160, "Use ate 160 caracteres."),
     purchaseDate: z
       .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data de compra valida."),
+      .trim()
+      .refine(isValidDateValue, "Informe uma data de compra valida."),
     firstInstallmentMonth: z
       .string()
-      .regex(/^\d{4}-\d{2}$/, "Informe o mes inicial da primeira parcela."),
+      .trim()
+      .refine(
+        isValidMonthKey,
+        "Informe o mes inicial da primeira parcela."
+      ),
     installmentCount: z.coerce
       .number()
       .int("Use um numero inteiro de parcelas.")
@@ -87,11 +95,32 @@ const purchaseFormSchema = z
     redirectTo: z.string().trim().optional(),
   })
   .superRefine((value, context) => {
-    if (value.firstInstallmentMonth < monthKeyFromDate(value.purchaseDate)) {
+    if (
+      isValidDateValue(value.purchaseDate) &&
+      isValidMonthKey(value.firstInstallmentMonth) &&
+      value.firstInstallmentMonth < monthKeyFromDate(value.purchaseDate)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["firstInstallmentMonth"],
         message: "O mes da primeira parcela nao pode ser anterior ao mes da compra.",
+      })
+    }
+
+    if (
+      isValidMonthKey(value.firstInstallmentMonth) &&
+      Number.isInteger(value.installmentCount) &&
+      value.installmentCount >= 1 &&
+      value.installmentCount <= 120 &&
+      !isValidInstallmentSchedule(
+        value.firstInstallmentMonth,
+        value.installmentCount
+      )
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["firstInstallmentMonth"],
+        message: "O plano de parcelas ultrapassa o limite de calendario suportado.",
       })
     }
   })
@@ -120,7 +149,8 @@ const monthlyExpenseFormSchema = z
     cardId: z.string().trim().min(1, "Selecione um cartao."),
     startMonth: z
       .string()
-      .regex(/^\d{4}-\d{2}$/, "Informe o mes inicial."),
+      .trim()
+      .refine(isValidMonthKey, "Informe o mes inicial."),
     endMonth: z.string().trim().optional().default(""),
     notes: z
       .string()
@@ -131,7 +161,7 @@ const monthlyExpenseFormSchema = z
     redirectTo: z.string().trim().optional(),
   })
   .superRefine((value, context) => {
-    if (value.endMonth && !/^\d{4}-\d{2}$/.test(value.endMonth)) {
+    if (value.endMonth && !isValidMonthKey(value.endMonth)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["endMonth"],
@@ -140,7 +170,12 @@ const monthlyExpenseFormSchema = z
       return
     }
 
-    if (value.endMonth && value.endMonth < value.startMonth) {
+    if (
+      value.endMonth &&
+      isValidMonthKey(value.startMonth) &&
+      isValidMonthKey(value.endMonth) &&
+      value.endMonth < value.startMonth
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["endMonth"],
@@ -354,13 +389,15 @@ export async function savePurchase(
   }
 
   if (purchaseId) {
-    const { error } = await supabase
+    const { data: updatedPurchase, error } = await supabase
       .from("purchases")
       .update(payload)
       .eq("id", purchaseId)
       .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle()
 
-    if (error) {
+    if (error || !updatedPurchase) {
       return {
         status: "error",
         message: "Nao foi possivel atualizar a compra agora.",
@@ -449,13 +486,15 @@ export async function saveMonthlyExpense(
   }
 
   if (monthlyExpenseId) {
-    const { error } = await supabase
+    const { data: updatedMonthlyExpense, error } = await supabase
       .from("monthly_expenses")
       .update(payload)
       .eq("id", monthlyExpenseId)
       .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle()
 
-    if (error) {
+    if (error || !updatedMonthlyExpense) {
       return {
         status: "error",
         message: "Nao foi possivel atualizar a mensalidade agora.",
@@ -489,15 +528,17 @@ export async function setPurchaseDisabled(purchaseId: string, disabled: boolean)
     throw new Error("Sua sessao expirou.")
   }
 
-  const { error } = await supabase
+  const { data: updatedPurchase, error } = await supabase
     .from("purchases")
     .update({
       is_disabled: disabled,
     })
     .eq("id", purchaseId)
     .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle()
 
-  if (error) {
+  if (error || !updatedPurchase) {
     throw new Error(
       disabled
         ? "Nao foi possivel desativar a compra."
@@ -522,15 +563,17 @@ export async function setMonthlyExpenseDisabled(
     throw new Error("Sua sessao expirou.")
   }
 
-  const { error } = await supabase
+  const { data: updatedMonthlyExpense, error } = await supabase
     .from("monthly_expenses")
     .update({
       is_disabled: disabled,
     })
     .eq("id", monthlyExpenseId)
     .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle()
 
-  if (error) {
+  if (error || !updatedMonthlyExpense) {
     throw new Error(
       disabled
         ? "Nao foi possivel desativar a mensalidade."

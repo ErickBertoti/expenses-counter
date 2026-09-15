@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  addMonthsToMonthKey,
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
   buildMonthlySummaries,
@@ -8,7 +9,14 @@ import {
   buildReturnToPath,
   filterMonthlyExpenses,
   filterPurchases,
+  formatMonthLabel,
   getInstallmentAmountForMonth,
+  getCurrentDateValue,
+  getCurrentMonthKey,
+  isValidDateValue,
+  isValidInstallmentSchedule,
+  isValidMonthKey,
+  parseCurrencyInputToCents,
   parseDashboardFilters,
   sanitizeRedirectPath,
   shouldIncludeDisabledInAnalytics,
@@ -53,6 +61,92 @@ function createMonthlyExpense(
     ...overrides,
   }
 }
+
+describe("input validation and safe boundaries", () => {
+  it("validates real calendar dates", () => {
+    expect(isValidDateValue("2024-02-29")).toBe(true)
+    expect(isValidDateValue("2025-02-29")).toBe(false)
+    expect(isValidDateValue("2025-02-31")).toBe(false)
+    expect(isValidDateValue("2025-13-01")).toBe(false)
+    expect(isValidDateValue("0000-01-01")).toBe(false)
+  })
+
+  it("validates persisted month keys separately from calculated months", () => {
+    expect(isValidMonthKey("2025-01")).toBe(true)
+    expect(isValidMonthKey("2025-00")).toBe(false)
+    expect(isValidMonthKey("2025-13")).toBe(false)
+    expect(isValidMonthKey("0000-01")).toBe(false)
+    expect(isValidMonthKey("10000-01")).toBe(false)
+  })
+
+  it("keeps the application date in Sao Paulo across UTC day boundaries", () => {
+    const beforeMidnight = new Date("2026-09-09T02:30:00.000Z")
+    const afterMidnight = new Date("2026-09-09T03:30:00.000Z")
+
+    expect(getCurrentDateValue(beforeMidnight)).toBe("2026-09-08")
+    expect(getCurrentDateValue(afterMidnight)).toBe("2026-09-09")
+    expect(getCurrentMonthKey(new Date("2026-01-01T02:30:00.000Z"))).toBe(
+      "2025-12"
+    )
+  })
+
+  it("rejects installment schedules that overflow persisted months", () => {
+    expect(isValidInstallmentSchedule("9999-12", 1)).toBe(true)
+    expect(isValidInstallmentSchedule("9999-12", 2)).toBe(false)
+    expect(addMonthsToMonthKey("9999-12", 1)).toBe("10000-01")
+  })
+
+  it("keeps legacy calculated months beyond 9999 from crashing summaries", () => {
+    const purchase = buildPurchaseWithProgress(
+      createPurchase({
+        first_installment_month: "9999-12-01",
+        installment_count: 2,
+      }),
+      "Cartão principal",
+      "9999-12"
+    )
+
+    expect(formatMonthLabel("10000-01")).toBe("Janeiro de 10000")
+    expect(() =>
+      buildMonthlyBreakdowns({
+        purchases: [purchase],
+        monthlyExpenses: [],
+        referenceMonthKey: "9999-12",
+      })
+    ).not.toThrow()
+  })
+
+  it("parses valid Brazilian currency formats without floating point rounding", () => {
+    expect(parseCurrencyInputToCents("249")).toBe(24900)
+    expect(parseCurrencyInputToCents("249,90")).toBe(24990)
+    expect(parseCurrencyInputToCents("249.90")).toBe(24990)
+    expect(parseCurrencyInputToCents("1.249,90")).toBe(124990)
+    expect(parseCurrencyInputToCents("1,249.90")).toBe(124990)
+    expect(parseCurrencyInputToCents("R$ 1.249,90")).toBe(124990)
+    expect(parseCurrencyInputToCents("21474836,47")).toBe(2147483647)
+  })
+
+  it("rejects malformed and overflowing currency values", () => {
+    expect(parseCurrencyInputToCents("1,2,3")).toBeNull()
+    expect(parseCurrencyInputToCents("12.34.56")).toBeNull()
+    expect(parseCurrencyInputToCents("1,234,56")).toBeNull()
+    expect(parseCurrencyInputToCents("texto 249")).toBeNull()
+    expect(parseCurrencyInputToCents("21474836,48")).toBeNull()
+  })
+
+  it("keeps redirects local and rejects backslash-based host escapes", () => {
+    expect(sanitizeRedirectPath("/?view=summary")).toBe("/?view=summary")
+    expect(sanitizeRedirectPath("/auth/update-password")).toBe(
+      "/auth/update-password"
+    )
+    expect(sanitizeRedirectPath("https://evil.example")).toBe("/")
+    expect(sanitizeRedirectPath("//evil.example")).toBe("/")
+    expect(sanitizeRedirectPath("/\\evil.example")).toBe("/")
+    expect(sanitizeRedirectPath("/safe\r\nLocation: https://evil.example")).toBe(
+      "/"
+    )
+  })
+})
 
 describe("purchase calculations", () => {
   it("counts already paid installments for an older purchase", () => {
