@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { buildDashboardAnalytics, getTimelineFutureRange } from "./analytics"
+import {
+  buildDashboardAnalytics,
+  getDashboardProjectionRange,
+  getTimelineFutureRange,
+} from "./analytics"
 import {
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
@@ -212,22 +216,34 @@ describe("dashboard analytics", () => {
     ).toBe(1)
   })
 
-  it("calculates the future range for historical, current and future windows", () => {
+  it("calculates the future range only when the current month is on the timeline", () => {
     const timeline = [
       { month: "2025-01" },
       { month: "2025-02" },
       { month: "2025-03" },
     ]
 
-    expect(getTimelineFutureRange(timeline, "2024-12")).toEqual({
-      startMonth: "2025-01",
-      endMonth: "2025-03",
-    })
+    expect(getTimelineFutureRange(timeline, "2024-12")).toBeNull()
     expect(getTimelineFutureRange(timeline, "2025-02")).toEqual({
       startMonth: "2025-02",
       endMonth: "2025-03",
     })
     expect(getTimelineFutureRange(timeline, "2025-04")).toBeNull()
+  })
+
+  it("calculates the default projection range and recenters out-of-range focus", () => {
+    expect(getDashboardProjectionRange("2026-02", "2026-02")).toEqual({
+      startMonth: "2025-11",
+      endMonth: "2027-02",
+    })
+    expect(getDashboardProjectionRange("2026-02", "2025-10")).toEqual({
+      startMonth: "2025-07",
+      endMonth: "2026-10",
+    })
+    expect(getDashboardProjectionRange("2026-02", "2027-03")).toEqual({
+      startMonth: "2026-12",
+      endMonth: "2028-03",
+    })
   })
 
   it("returns neutral insights without commitments", () => {

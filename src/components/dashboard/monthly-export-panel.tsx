@@ -143,8 +143,11 @@ export function MonthlyExportPanel({ model }: MonthlyExportPanelProps) {
             Documento de {model.month_label}
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Texto pronto para WhatsApp/email e imagem PNG com a composição do mês
-            completo, sem itens desativados.
+            Texto pronto para WhatsApp/email e imagem PNG com o recorte filtrado
+            do mês em foco.
+          </p>
+          <p className="mt-3 max-w-2xl rounded-md border border-border bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground">
+            {model.scope_label}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -202,7 +205,10 @@ export function MonthlyExportPanel({ model }: MonthlyExportPanelProps) {
                 Resumo de {model.month_label}
               </h3>
               <p className="mt-1 text-sm text-[#d9a979]">
-                {model.item_count} itens no mês completo
+                {model.item_count} itens no escopo filtrado
+              </p>
+              <p className="mt-2 max-w-xl text-xs leading-5 text-[#d9a979]">
+                {model.scope_label}
               </p>
             </div>
             <div className="text-2xl font-semibold tabular-nums">
@@ -270,7 +276,7 @@ export function MonthlyExportPanel({ model }: MonthlyExportPanelProps) {
               )}
               {model.purchases.length > 4 ? (
                 <p className="text-xs text-[#d9a979]">
-                  +{model.purchases.length - 4} compras no documento completo.
+                  +{model.purchases.length - 4} compras no documento filtrado.
                 </p>
               ) : null}
             </div>
@@ -308,12 +314,17 @@ export function MonthlyExportPanel({ model }: MonthlyExportPanelProps) {
               {model.monthly_expenses.length > 4 ? (
                 <p className="text-xs text-[#d9a979]">
                   +{model.monthly_expenses.length - 4} mensalidades no documento
-                  completo.
+                  filtrado.
                 </p>
               ) : null}
             </div>
           </div>
         </div>
+        <p className="border-t border-[#5a241a] px-4 py-3 text-xs leading-5 text-[#d9a979]">
+          {model.includes_disabled
+            ? "Itens desativados foram incluídos conforme os filtros."
+            : "Itens desativados não entram neste resumo."}
+        </p>
       </div>
     </section>
   )

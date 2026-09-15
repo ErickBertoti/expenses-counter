@@ -16,8 +16,12 @@ import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
 import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
 import { PurchaseForm } from "@/components/dashboard/purchase-form"
-import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
+import {
+  ExpenseStatusBadge,
+  PurchaseStatusBadge,
+} from "@/components/dashboard/purchase-status-badge"
 import { SortablePurchaseTable } from "@/components/dashboard/sortable-purchase-table"
+import { DashboardViewTabs } from "@/components/dashboard/dashboard-view-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -164,17 +168,12 @@ export function DesktopDashboard({
                 <SummaryMetric
                   label="Mensalidades"
                   value={String(dashboard.activeMonthlyExpenseCount)}
-                  helper="Custos recorrentes habilitados nos filtros."
+                  helper="Mensalidades em andamento nos filtros."
                 />
               </div>
             </section>
 
-            <MonthlyAnalytics
-              analytics={dashboard.analytics}
-              focusMonth={dashboard.focusMonth}
-            />
-
-            <MonthlyExportPanel model={dashboard.monthlyExport} />
+            <DashboardViewTabs filters={dashboard.filters} />
 
             <section className="rounded-lg border border-border bg-card p-5">
               <PurchaseFilters
@@ -193,7 +192,18 @@ export function DesktopDashboard({
               />
             </section>
 
-            <Card className="py-0">
+            {dashboard.filters.view === "summary" ? (
+              <>
+                <MonthlyAnalytics
+                  analytics={dashboard.analytics}
+                  focusMonth={dashboard.focusMonth}
+                />
+                <MonthlyExportPanel model={dashboard.monthlyExport} />
+              </>
+            ) : null}
+
+            {dashboard.filters.view === "purchases" ? (
+              <Card className="py-0">
               <CardHeader className="border-b py-5">
                 <div className="flex flex-col gap-1">
                   <CardTitle>Compras cadastradas</CardTitle>
@@ -327,8 +337,10 @@ export function DesktopDashboard({
                 )}
               </CardContent>
             </Card>
+            ) : null}
 
-            <Card className="py-0">
+            {dashboard.filters.view === "monthly" ? (
+              <Card className="py-0">
               <CardHeader className="border-b py-5">
                 <div className="flex flex-col gap-1">
                   <CardTitle>Mensalidades</CardTitle>
@@ -399,14 +411,7 @@ export function DesktopDashboard({
                               {getMonthlyExpensePeriodLabel(monthlyExpense)}
                             </TableCell>
                             <TableCell>
-                              <Badge
-                                variant={
-                                  monthlyExpense.is_disabled ? "disabled" : "active"
-                                }
-                              >
-                                <span className="size-1.5 rounded-full bg-current opacity-70" />
-                                {monthlyExpense.is_disabled ? "Desativada" : "Ativa"}
-                              </Badge>
+                              <ExpenseStatusBadge status={monthlyExpense.status} />
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-end gap-2">
@@ -437,8 +442,10 @@ export function DesktopDashboard({
                 )}
               </CardContent>
             </Card>
+            ) : null}
 
-            <Card className="py-0">
+            {dashboard.filters.view === "summary" ? (
+              <Card className="py-0">
               <CardHeader className="border-b py-5">
                 <div className="flex flex-col gap-1">
                   <CardTitle>Resumo mensal</CardTitle>
@@ -600,6 +607,7 @@ export function DesktopDashboard({
                 )}
               </CardContent>
             </Card>
+            ) : null}
           </div>
 
           <aside className="order-1 flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:order-2 xl:self-start">

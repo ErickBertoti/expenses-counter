@@ -59,7 +59,9 @@ export type MonthlyExpenseFormValues = {
   redirectTo: string
 }
 
-export type PurchaseStatus = "active" | "completed" | "disabled"
+export type ExpenseStatus = "active" | "completed" | "disabled"
+
+export type PurchaseStatus = ExpenseStatus
 
 export type DashboardView = "purchases" | "summary" | "monthly"
 
@@ -71,11 +73,12 @@ export type PurchaseWithProgress = PurchaseRecord & {
   paid_amount_cents: number
   remaining_amount_cents: number
   completion_month: string
-  status: PurchaseStatus
+  status: ExpenseStatus
 }
 
 export type MonthlyExpenseWithCard = MonthlyExpenseRecord & {
   card_name: string
+  status: ExpenseStatus
 }
 
 export type MonthlyLineItem = {
@@ -152,6 +155,8 @@ export type MonthlyExportExpenseItem = {
 export type MonthlyExportModel = {
   month: string
   month_label: string
+  scope_label: string
+  includes_disabled: boolean
   total_amount_cents: number
   installment_total_cents: number
   monthly_total_cents: number
@@ -166,7 +171,7 @@ export type MonthlyExportModel = {
 
 export type DashboardFilters = {
   query: string
-  status: "all" | PurchaseStatus
+  status: "all" | ExpenseStatus
   includeDisabled: boolean
   month: string
   cardId: string

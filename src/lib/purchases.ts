@@ -1,6 +1,7 @@
 import type {
   DashboardFilters,
   DashboardView,
+  ExpenseStatus,
   MonthlyBreakdown,
   MonthlyExpenseRecord,
   MonthlyExpenseWithCard,
@@ -299,12 +300,32 @@ export function buildPurchaseWithProgress(
 
 export function buildMonthlyExpenseWithCard(
   monthlyExpense: MonthlyExpenseRecord,
-  cardName: string
+  cardName: string,
+  referenceMonthKey = getCurrentMonthKey()
 ): MonthlyExpenseWithCard {
   return {
     ...monthlyExpense,
     card_name: cardName,
+    status: getMonthlyExpenseStatus(monthlyExpense, referenceMonthKey),
   }
+}
+
+export function getMonthlyExpenseStatus(
+  monthlyExpense: Pick<MonthlyExpenseRecord, "end_month" | "is_disabled">,
+  referenceMonthKey = getCurrentMonthKey()
+): ExpenseStatus {
+  if (monthlyExpense.is_disabled) {
+    return "disabled"
+  }
+
+  if (
+    monthlyExpense.end_month &&
+    compareMonthKeys(normalizeMonthValue(monthlyExpense.end_month), referenceMonthKey) < 0
+  ) {
+    return "completed"
+  }
+
+  return "active"
 }
 
 export function hasMonthlyExpenseInMonth(
@@ -373,11 +394,15 @@ export function filterMonthlyExpenses(
   const normalizedQuery = filters.query.toLocaleLowerCase("pt-BR")
 
   return monthlyExpenses.filter((monthlyExpense) => {
-    if (filters.status === "disabled") {
-      if (!monthlyExpense.is_disabled) {
-        return false
-      }
-    } else if (monthlyExpense.is_disabled && !filters.includeDisabled) {
+    if (filters.status !== "all" && monthlyExpense.status !== filters.status) {
+      return false
+    }
+
+    if (
+      monthlyExpense.status === "disabled" &&
+      !filters.includeDisabled &&
+      filters.status !== "disabled"
+    ) {
       return false
     }
 
@@ -427,8 +452,16 @@ export function sortMonthlyExpensesForDashboard(
   monthlyExpenses: MonthlyExpenseWithCard[]
 ) {
   return monthlyExpenses.toSorted((left, right) => {
-    if (left.is_disabled !== right.is_disabled) {
-      return left.is_disabled ? 1 : -1
+    if (left.status !== right.status) {
+      if (left.status === "disabled") {
+        return 1
+      }
+
+      if (right.status === "disabled") {
+        return -1
+      }
+
+      return left.status === "active" ? -1 : 1
     }
 
     const byStartMonth = compareMonthKeys(
@@ -545,19 +578,43 @@ function getMonthlySummaryWindowEnd({
   return windowEnd
 }
 
+export type MonthlyBreakdownRange = {
+  startMonth: string
+  endMonth: string
+}
+
+function normalizeMonthlyBreakdownRange(range: MonthlyBreakdownRange) {
+  const startMonth = assertCalculatedMonthKey(range.startMonth)
+  const endMonth = assertCalculatedMonthKey(range.endMonth)
+
+  if (
+    startMonth.year > endMonth.year ||
+    (startMonth.year === endMonth.year && startMonth.month > endMonth.month)
+  ) {
+    throw new Error("Invalid monthly breakdown range")
+  }
+
+  return range
+}
+
 export function buildMonthlyBreakdowns({
   focusMonth,
   includeDisabled = false,
   monthlyExpenses,
   purchases,
+  range,
   referenceMonthKey = getCurrentMonthKey(),
 }: {
   focusMonth?: string
   includeDisabled?: boolean
   monthlyExpenses: MonthlyExpenseWithCard[]
   purchases: PurchaseWithProgress[]
+  range?: MonthlyBreakdownRange
   referenceMonthKey?: string
 }) {
+  const normalizedRange = range
+    ? normalizeMonthlyBreakdownRange(range)
+    : undefined
   const includedPurchases = includeDisabled
     ? purchases
     : purchases.filter((purchase) => purchase.status !== "disabled")
@@ -570,6 +627,14 @@ export function buildMonthlyBreakdowns({
     const firstInstallmentMonth = normalizeMonthValue(purchase.first_installment_month)
     purchase.installment_amounts_cents.forEach((amount, index) => {
       const month = addMonthsToMonthKey(firstInstallmentMonth, index)
+      if (
+        normalizedRange &&
+        (compareMonthKeys(month, normalizedRange.startMonth) < 0 ||
+          compareMonthKeys(month, normalizedRange.endMonth) > 0)
+      ) {
+        return
+      }
+
       pushLineItem(monthlyBreakdowns, {
         id: `${purchase.id}:${month}`,
         source_id: purchase.id,
@@ -585,11 +650,13 @@ export function buildMonthlyBreakdowns({
     })
   }
 
-  const windowEnd = getMonthlySummaryWindowEnd({
-    focusMonth,
-    purchases: includedPurchases,
-    referenceMonthKey,
-  })
+  const windowEnd =
+    normalizedRange?.endMonth ??
+    getMonthlySummaryWindowEnd({
+      focusMonth,
+      purchases: includedPurchases,
+      referenceMonthKey,
+    })
 
   for (const monthlyExpense of includedMonthlyExpenses) {
     let month = normalizeMonthValue(monthlyExpense.start_month)
@@ -597,7 +664,27 @@ export function buildMonthlyBreakdowns({
       ? normalizeMonthValue(monthlyExpense.end_month)
       : windowEnd
 
-    while (compareMonthKeys(month, endMonth) <= 0) {
+    if (
+      normalizedRange &&
+      (compareMonthKeys(endMonth, normalizedRange.startMonth) < 0 ||
+        compareMonthKeys(month, normalizedRange.endMonth) > 0)
+    ) {
+      continue
+    }
+
+    if (
+      normalizedRange &&
+      compareMonthKeys(month, normalizedRange.startMonth) < 0
+    ) {
+      month = normalizedRange.startMonth
+    }
+
+    const cappedEndMonth =
+      normalizedRange && compareMonthKeys(endMonth, normalizedRange.endMonth) > 0
+        ? normalizedRange.endMonth
+        : endMonth
+
+    while (compareMonthKeys(month, cappedEndMonth) <= 0) {
       pushLineItem(monthlyBreakdowns, {
         id: `${monthlyExpense.id}:${month}`,
         source_id: monthlyExpense.id,
@@ -624,6 +711,7 @@ export function buildMonthlySummaries(
   options?: {
     focusMonth?: string
     includeDisabled?: boolean
+    range?: MonthlyBreakdownRange
     referenceMonthKey?: string
   }
 ) {
@@ -632,6 +720,7 @@ export function buildMonthlySummaries(
     monthlyExpenses,
     focusMonth: options?.focusMonth,
     includeDisabled: options?.includeDisabled,
+    range: options?.range,
     referenceMonthKey: options?.referenceMonthKey,
   }).map((breakdown): MonthlySummary => {
     const purchaseIds = new Set(

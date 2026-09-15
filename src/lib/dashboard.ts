@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation"
 
 import { createClient } from "@/lib/server"
-import { buildMonthlyExportModel } from "@/lib/monthly-export"
-import { buildDashboardAnalytics } from "@/lib/analytics"
+import {
+  buildMonthlyExportModel,
+  buildMonthlyExportScopeLabel,
+} from "@/lib/monthly-export"
+import {
+  buildDashboardAnalytics,
+  getDashboardProjectionRange,
+} from "@/lib/analytics"
 import {
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
@@ -123,7 +129,8 @@ export async function getDashboardData(
   const monthlyExpensesWithCard = monthlyExpenseRecords.map((monthlyExpense) =>
     buildMonthlyExpenseWithCard(
       monthlyExpense,
-      cardNameById.get(monthlyExpense.card_id) ?? "Cartão"
+      cardNameById.get(monthlyExpense.card_id) ?? "Cartão",
+      currentMonth
     )
   )
   const filteredPurchases = sortPurchasesForDashboard(
@@ -149,11 +156,13 @@ export async function getDashboardData(
       (monthlyExpense) => monthlyExpense.id === filters.monthlyEditId
     ) ?? null
   const focusMonth = filters.month || currentMonth
+  const projectionRange = getDashboardProjectionRange(currentMonth, focusMonth)
   const monthlyBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
     includeDisabled: includeDisabledInAnalytics,
     monthlyExpenses: summaryMonthlyExpenses,
     purchases: summaryPurchases,
+    range: projectionRange,
     referenceMonthKey: currentMonth,
   })
   const monthlySummaries = buildMonthlySummaries(
@@ -162,6 +171,7 @@ export async function getDashboardData(
     {
       focusMonth,
       includeDisabled: includeDisabledInAnalytics,
+      range: projectionRange,
       referenceMonthKey: currentMonth,
     }
   )
@@ -181,17 +191,33 @@ export async function getDashboardData(
   })
   const exportBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
-    monthlyExpenses: monthlyExpensesWithCard,
-    purchases: purchasesWithProgress,
+    includeDisabled: includeDisabledInAnalytics,
+    monthlyExpenses: filteredMonthlyExpenses,
+    purchases: filteredPurchases,
+    range: {
+      startMonth: focusMonth,
+      endMonth: focusMonth,
+    },
     referenceMonthKey: currentMonth,
   })
   const focusExportBreakdown =
     exportBreakdowns.find((breakdown) => breakdown.month === focusMonth) ??
     emptyMonthlyBreakdown(focusMonth)
+  const exportIncludesDisabled =
+    filteredPurchases.some((purchase) => purchase.status === "disabled") ||
+    filteredMonthlyExpenses.some(
+      (monthlyExpense) => monthlyExpense.status === "disabled"
+    )
   const monthlyExport = buildMonthlyExportModel({
     breakdown: focusExportBreakdown,
-    monthlyExpenses: monthlyExpensesWithCard,
-    purchases: purchasesWithProgress,
+    includesDisabled: exportIncludesDisabled,
+    monthlyExpenses: filteredMonthlyExpenses,
+    purchases: filteredPurchases,
+    scopeLabel: buildMonthlyExportScopeLabel({
+      cards,
+      filters,
+      includesDisabled: exportIncludesDisabled,
+    }),
   })
   const activePurchaseCount = filteredPurchases.filter(
     (purchase) => purchase.status === "active"
@@ -204,7 +230,7 @@ export async function getDashboardData(
     0
   )
   const activeMonthlyExpenseCount = filteredMonthlyExpenses.filter(
-    (monthlyExpense) => !monthlyExpense.is_disabled
+    (monthlyExpense) => monthlyExpense.status === "active"
   ).length
   const defaultCard = cards.find((card) => card.is_default) ?? cards[0]
 

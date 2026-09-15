@@ -13,6 +13,7 @@ import {
   getInstallmentAmountForMonth,
   getCurrentDateValue,
   getCurrentMonthKey,
+  getMonthlyExpenseStatus,
   isValidDateValue,
   isValidInstallmentSchedule,
   isValidMonthKey,
@@ -161,6 +162,45 @@ describe("purchase calculations", () => {
     expect(result.remaining_installments).toBe(2)
     expect(result.status).toBe("active")
     expect(result.remaining_amount_cents).toBe(20000)
+  })
+
+  it("derives monthly expense status from its end month and disabled flag", () => {
+    expect(
+      getMonthlyExpenseStatus(
+        createMonthlyExpense({ end_month: null }),
+        "2025-04"
+      )
+    ).toBe("active")
+    expect(
+      getMonthlyExpenseStatus(
+        createMonthlyExpense({
+          start_month: "2025-06-01",
+          end_month: "2025-08-01",
+        }),
+        "2025-04"
+      )
+    ).toBe("active")
+    expect(
+      getMonthlyExpenseStatus(
+        createMonthlyExpense({ end_month: "2025-04-01" }),
+        "2025-04"
+      )
+    ).toBe("active")
+    expect(
+      getMonthlyExpenseStatus(
+        createMonthlyExpense({ end_month: "2025-03-01" }),
+        "2025-04"
+      )
+    ).toBe("completed")
+    expect(
+      getMonthlyExpenseStatus(
+        createMonthlyExpense({
+          end_month: "2025-03-01",
+          is_disabled: true,
+        }),
+        "2025-04"
+      )
+    ).toBe("disabled")
   })
 
   it("marks a purchase as completed when all installments are in the past", () => {
@@ -445,6 +485,41 @@ describe("purchase calculations", () => {
     expect(breakdowns.at(-1)?.month).toBe("2025-03")
   })
 
+  it("caps long installments and open-ended monthly expenses to a requested range", () => {
+    const longPurchase = buildPurchaseWithProgress(
+      createPurchase({
+        first_installment_month: "2026-01-01",
+        installment_count: 120,
+        total_amount_cents: 120000,
+      }),
+      "Cartão principal",
+      "2026-01"
+    )
+    const openMonthlyExpense = buildMonthlyExpenseWithCard(
+      createMonthlyExpense({
+        start_month: "2026-01-01",
+        end_month: null,
+        amount_cents: 10000,
+      }),
+      "Cartão principal",
+      "2026-01"
+    )
+    const breakdowns = buildMonthlyBreakdowns({
+      purchases: [longPurchase],
+      monthlyExpenses: [openMonthlyExpense],
+      range: {
+        startMonth: "2026-01",
+        endMonth: "2027-04",
+      },
+      referenceMonthKey: "2026-01",
+    })
+
+    expect(breakdowns).toHaveLength(16)
+    expect(breakdowns[0]?.month).toBe("2027-04")
+    expect(breakdowns.at(-1)?.month).toBe("2026-01")
+    expect(breakdowns.some((item) => item.month === "2027-05")).toBe(false)
+  })
+
   it("combines installment and monthly expenses in the same monthly summary", () => {
     const purchase = buildPurchaseWithProgress(
       createPurchase({
@@ -478,9 +553,17 @@ describe("purchase calculations", () => {
     })
   })
 
-  it("filters disabled monthly expenses separately", () => {
+  it("filters monthly expenses by active, completed and disabled status", () => {
     const activeMonthlyExpense = buildMonthlyExpenseWithCard(
-      createMonthlyExpense({ id: "monthly-active" }),
+      createMonthlyExpense({ id: "monthly-active", end_month: null }),
+      "Cartão principal",
+      "2025-03"
+    )
+    const completedMonthlyExpense = buildMonthlyExpenseWithCard(
+      createMonthlyExpense({
+        id: "monthly-completed",
+        end_month: "2025-02-01",
+      }),
       "Cartão principal"
     )
     const disabledMonthlyExpense = buildMonthlyExpenseWithCard(
@@ -488,27 +571,40 @@ describe("purchase calculations", () => {
         id: "monthly-disabled",
         is_disabled: true,
       }),
-      "Cartão principal"
+      "Cartão principal",
+      "2025-03"
     )
 
     expect(
       filterMonthlyExpenses(
-        [activeMonthlyExpense, disabledMonthlyExpense],
+        [activeMonthlyExpense, completedMonthlyExpense, disabledMonthlyExpense],
         parseDashboardFilters({})
+      ).map((monthlyExpense) => monthlyExpense.id)
+    ).toEqual(["monthly-active", "monthly-completed"])
+    expect(
+      filterMonthlyExpenses(
+        [activeMonthlyExpense, completedMonthlyExpense, disabledMonthlyExpense],
+        parseDashboardFilters({ status: "active" })
       ).map((monthlyExpense) => monthlyExpense.id)
     ).toEqual(["monthly-active"])
     expect(
       filterMonthlyExpenses(
-        [activeMonthlyExpense, disabledMonthlyExpense],
+        [activeMonthlyExpense, completedMonthlyExpense, disabledMonthlyExpense],
+        parseDashboardFilters({ status: "completed" })
+      ).map((monthlyExpense) => monthlyExpense.id)
+    ).toEqual(["monthly-completed"])
+    expect(
+      filterMonthlyExpenses(
+        [activeMonthlyExpense, completedMonthlyExpense, disabledMonthlyExpense],
         parseDashboardFilters({ status: "disabled" })
       ).map((monthlyExpense) => monthlyExpense.id)
     ).toEqual(["monthly-disabled"])
     expect(
       filterMonthlyExpenses(
-        [activeMonthlyExpense, disabledMonthlyExpense],
+        [activeMonthlyExpense, completedMonthlyExpense, disabledMonthlyExpense],
         parseDashboardFilters({ includeDisabled: "1" })
       ).map((monthlyExpense) => monthlyExpense.id)
-    ).toEqual(["monthly-active", "monthly-disabled"])
+    ).toEqual(["monthly-active", "monthly-completed", "monthly-disabled"])
   })
 
   it("defaults the dashboard view to purchases", () => {
