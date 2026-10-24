@@ -2,6 +2,34 @@ export type DashboardUrlUpdates = Partial<
   Record<"q" | "status" | "month" | "card" | "includeDisabled", string>
 >
 
+export type ExpenseComposerMode = {
+  kind: "purchase" | "monthly"
+  isEditing: boolean
+  key: string
+}
+
+export function resolveExpenseComposerMode(
+  search: string,
+  selectedPurchaseId?: string,
+  selectedMonthlyExpenseId?: string
+): ExpenseComposerMode | null {
+  const params = new URLSearchParams(search)
+  if (selectedPurchaseId && params.get("edit")?.trim() === selectedPurchaseId) {
+    return { kind: "purchase", isEditing: true, key: `purchase:${selectedPurchaseId}` }
+  }
+  if (selectedMonthlyExpenseId && params.get("editMonthly")?.trim() === selectedMonthlyExpenseId) {
+    return { kind: "monthly", isEditing: true, key: `monthly:${selectedMonthlyExpenseId}` }
+  }
+  const compose = params.get("compose")
+  if (compose === "1" || compose === "purchase") {
+    return { kind: "purchase", isEditing: false, key: "purchase:new" }
+  }
+  if (compose === "monthly") {
+    return { kind: "monthly", isEditing: false, key: "monthly:new" }
+  }
+  return null
+}
+
 export function resolveDashboardHref(
   pathname: string,
   searchParamsString: string,

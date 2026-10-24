@@ -1,31 +1,14 @@
 "use client"
 
-import Link from "next/link"
-import {
-  useActionState,
-  useRef,
-  useState,
-  type FocusEvent,
-  type RefObject,
-} from "react"
-import { Loader2Icon, PencilLineIcon, PlusIcon } from "lucide-react"
+import { useActionState } from "react"
+import { PencilLineIcon, PlusIcon } from "lucide-react"
 
 import { savePurchase } from "@/app/actions"
-import { Button, buttonVariants } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerHeading,
-  DrawerTitle,
-} from "@/components/ui/drawer"
+  ExpenseFormLayout,
+  useExpenseForm,
+  type ExpenseFormStatus,
+} from "@/components/dashboard/expense-form-layout"
 import {
   Field,
   FieldContent,
@@ -60,7 +43,8 @@ type PurchaseFormProps = {
   initialValues: PurchaseFormValues
   isEditing: boolean
   returnTo: string
-  variant?: "desktop" | "mobile"
+  onCancel: () => void
+  onStatusChange: (status: ExpenseFormStatus) => void
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -71,61 +55,20 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-sm text-destructive">{message}</p>
 }
 
-function scrollFocusedFieldIntoView(
-  event: FocusEvent<HTMLFormElement>,
-  scrollContainerRef: RefObject<HTMLDivElement | null>
-) {
-  const field = event.target
-  if (!(field instanceof HTMLElement)) {
-    return
-  }
-
-  window.setTimeout(() => {
-    field.scrollIntoView({
-      block: "center",
-      inline: "nearest",
-      behavior: "smooth",
-    })
-  }, 180)
-
-  const scrollContainer = scrollContainerRef.current
-  if (!scrollContainer) {
-    return
-  }
-
-  window.setTimeout(() => {
-    const fieldRect = field.getBoundingClientRect()
-    const containerRect = scrollContainer.getBoundingClientRect()
-    const needsReveal =
-      fieldRect.bottom > containerRect.bottom - 88 ||
-      fieldRect.top < containerRect.top + 24
-
-    if (needsReveal) {
-      field.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-        behavior: "smooth",
-      })
-    }
-  }, 260)
-}
-
 export function PurchaseForm({
   cards,
   idPrefix = "purchase-form",
   initialValues,
   isEditing,
   returnTo,
-  variant = "desktop",
+  onCancel,
+  onStatusChange,
 }: PurchaseFormProps) {
   const [state, formAction, pending] = useActionState(savePurchase, initialState)
-  const [selectedCardId, setSelectedCardId] = useState(initialValues.cardId)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const isMobile = variant === "mobile"
+  const form = useExpenseForm(initialValues, pending, state, onStatusChange)
+  const { values, onFieldChange, setFieldValue } = form
   const title = isEditing ? "Editar compra" : "Nova compra parcelada"
-  const description = isMobile
-    ? "Preencha os dados da compra e continue na mesma tela."
-    : "Cadastre compras antigas ou atuais. O sistema calcula o andamento das parcelas com base no mês inicial informado."
+  const description = "Cadastre compras antigas ou atuais. O andamento das parcelas é calculado pelo mês inicial."
 
   function fieldId(name: string) {
     return `${idPrefix}-${name}`
@@ -133,6 +76,7 @@ export function PurchaseForm({
 
   const alertMessage = state.message ? (
     <div
+      role="alert"
       className={cn(
         "rounded-md border px-4 py-3 text-sm",
         state.status === "error"
@@ -145,14 +89,15 @@ export function PurchaseForm({
   ) : null
 
   const fields = (
-    <FieldGroup className={cn(isMobile ? "gap-4" : "gap-5")}>
+    <FieldGroup className="gap-4 lg:gap-5">
       <Field data-invalid={Boolean(state.fieldErrors?.description) || undefined}>
         <FieldLabel htmlFor={fieldId("description")}>Descrição</FieldLabel>
         <FieldContent>
           <Input
             id={fieldId("description")}
             name="description"
-            defaultValue={initialValues.description}
+            value={values.description}
+            onChange={onFieldChange}
             placeholder="Ex.: Notebook, curso, viagem"
             aria-invalid={Boolean(state.fieldErrors?.description) || undefined}
             autoCapitalize="sentences"
@@ -160,11 +105,9 @@ export function PurchaseForm({
             enterKeyHint="next"
             required
           />
-          {!isMobile ? (
-            <FieldDescription>
-              Use um nome curto para reconhecer a compra na lista.
-            </FieldDescription>
-          ) : null}
+          <FieldDescription>
+            Use um nome curto para reconhecer a compra na lista.
+          </FieldDescription>
           <FieldError message={state.fieldErrors?.description} />
         </FieldContent>
       </Field>
@@ -175,14 +118,16 @@ export function PurchaseForm({
           <Select
             id={fieldId("cardId")}
             name="cardId"
-            value={selectedCardId}
-            onValueChange={(value) => setSelectedCardId(value ?? "")}
+            value={values.cardId}
+            onValueChange={(value) => setFieldValue("cardId", value ?? "")}
           >
             <SelectTrigger
               className="w-full"
               aria-invalid={Boolean(state.fieldErrors?.cardId) || undefined}
             >
-              <SelectValue placeholder="Selecione um cartão" />
+              <SelectValue placeholder="Selecione um cartão">
+                {cards.find((card) => card.id === values.cardId)?.name}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -194,11 +139,9 @@ export function PurchaseForm({
               </SelectGroup>
             </SelectContent>
           </Select>
-          {!isMobile ? (
-            <FieldDescription>
-              A estrutura já aceita mais de um cartão quando você quiser expandir.
-            </FieldDescription>
-          ) : null}
+          <FieldDescription>
+            A estrutura já aceita mais de um cartão quando você quiser expandir.
+          </FieldDescription>
           <FieldError message={state.fieldErrors?.cardId} />
         </FieldContent>
       </Field>
@@ -210,7 +153,8 @@ export function PurchaseForm({
             id={fieldId("purchaseDate")}
             name="purchaseDate"
             type="date"
-            defaultValue={initialValues.purchaseDate}
+            value={values.purchaseDate}
+            onChange={onFieldChange}
             aria-invalid={Boolean(state.fieldErrors?.purchaseDate) || undefined}
             enterKeyHint="next"
             required
@@ -230,7 +174,8 @@ export function PurchaseForm({
             id={fieldId("firstInstallmentMonth")}
             name="firstInstallmentMonth"
             type="month"
-            defaultValue={initialValues.firstInstallmentMonth}
+            value={values.firstInstallmentMonth}
+            onChange={onFieldChange}
             aria-invalid={
               Boolean(state.fieldErrors?.firstInstallmentMonth) || undefined
             }
@@ -253,7 +198,8 @@ export function PurchaseForm({
             type="number"
             min={1}
             max={120}
-            defaultValue={String(initialValues.installmentCount)}
+            value={values.installmentCount}
+            onChange={onFieldChange}
             aria-invalid={Boolean(state.fieldErrors?.installmentCount) || undefined}
             enterKeyHint="next"
             inputMode="numeric"
@@ -269,12 +215,13 @@ export function PurchaseForm({
           <Input
             id={fieldId("totalAmount")}
             name="totalAmount"
-            defaultValue={initialValues.totalAmount}
+            value={values.totalAmount}
+            onChange={onFieldChange}
             inputMode="decimal"
             placeholder="Ex.: 249,90"
             aria-invalid={Boolean(state.fieldErrors?.totalAmount) || undefined}
             autoComplete="off"
-            enterKeyHint={isMobile ? "done" : "next"}
+            enterKeyHint="next"
             spellCheck={false}
             required
           />
@@ -291,11 +238,12 @@ export function PurchaseForm({
           <Textarea
             id={fieldId("notes")}
             name="notes"
-            defaultValue={initialValues.notes}
+            value={values.notes}
+            onChange={onFieldChange}
             placeholder="Opcional. Ex.: promoção, item compartilhado, lembrete."
             aria-invalid={Boolean(state.fieldErrors?.notes) || undefined}
             enterKeyHint="done"
-            rows={isMobile ? 3 : 4}
+            rows={3}
           />
           <FieldError message={state.fieldErrors?.notes} />
         </FieldContent>
@@ -303,111 +251,26 @@ export function PurchaseForm({
     </FieldGroup>
   )
 
-  const actions = (
-    <div className={cn("flex gap-3", isMobile ? "flex-col" : "flex-col sm:flex-row")}>
-      <Button
-        type="submit"
-        className={cn(isMobile ? "w-full" : "w-full sm:flex-1")}
-        disabled={pending}
-        size={isMobile ? "lg" : "default"}
-      >
-        {pending ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
-        ) : isEditing ? (
-          <PencilLineIcon data-icon="inline-start" />
-        ) : (
-          <PlusIcon data-icon="inline-start" />
-        )}
-        {isEditing ? "Salvar alterações" : "Registrar compra"}
-      </Button>
-      {isEditing ? (
-        <Link
-          href={returnTo}
-          className={cn(
-            buttonVariants({
-              variant: "outline",
-              size: isMobile ? "lg" : "default",
-            }),
-            isMobile ? "w-full" : "w-full sm:w-auto"
-          )}
-        >
-          Cancelar edição
-        </Link>
-      ) : null}
-    </div>
-  )
-
-  const form = (
-    <form
-      action={formAction}
-      className={cn(
-        "flex flex-col",
-        isMobile ? "min-h-0 flex-1" : "gap-5"
-      )}
-      onFocusCapture={(event) => {
-        if (isMobile) {
-          scrollFocusedFieldIntoView(event, scrollContainerRef)
-        }
-      }}
-    >
-      <input type="hidden" name="purchaseId" value={initialValues.purchaseId ?? ""} />
-      <input type="hidden" name="redirectTo" value={returnTo} />
-
-      {isMobile ? (
-        <>
-          <div
-            ref={scrollContainerRef}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]"
-            style={{ scrollPaddingBottom: "9rem" }}
-          >
-            <div className="space-y-4">
-              {alertMessage}
-              {fields}
-            </div>
-          </div>
-          <DrawerFooter>{actions}</DrawerFooter>
-        </>
-      ) : (
-        <>
-          {alertMessage}
-          {fields}
-          {actions}
-        </>
-      )}
-    </form>
-  )
-
-  if (isMobile) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <DrawerHeader className="pr-14">
-          <DrawerHeading>
-            <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription>{description}</DrawerDescription>
-          </DrawerHeading>
-          <div className="flex size-11 items-center justify-center rounded-md bg-muted text-primary">
-            {isEditing ? <PencilLineIcon aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
-          </div>
-        </DrawerHeader>
-        {form}
-      </div>
-    )
-  }
-
   return (
-    <Card className="py-0">
-      <CardHeader className="border-b py-5">
-        <div className="flex items-start gap-4">
-          <div className="flex size-11 items-center justify-center rounded-md bg-muted text-primary">
-            {isEditing ? <PencilLineIcon /> : <PlusIcon />}
-          </div>
-          <div className="flex flex-col gap-1">
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="py-5">{form}</CardContent>
-    </Card>
+    <ExpenseFormLayout
+      form={form}
+      action={formAction}
+      title={title}
+      description={description}
+      icon={isEditing ? <PencilLineIcon aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
+      submitLabel={isEditing ? "Salvar alterações" : "Registrar compra"}
+      pending={pending}
+      onCancel={onCancel}
+      onStatusChange={onStatusChange}
+      alert={alertMessage}
+      hiddenFields={
+        <>
+          <input type="hidden" name="purchaseId" value={initialValues.purchaseId ?? ""} />
+          <input type="hidden" name="redirectTo" value={returnTo} />
+        </>
+      }
+    >
+      {fields}
+    </ExpenseFormLayout>
   )
 }

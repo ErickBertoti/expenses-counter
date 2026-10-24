@@ -1,8 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resolveAppOrigin } from "./app-origin"
-
-const ORIGINAL_NODE_ENV = process.env.NODE_ENV
 
 function clearOriginEnv() {
   delete process.env.NEXT_PUBLIC_APP_URL
@@ -16,16 +14,12 @@ function clearOriginEnv() {
 
 afterEach(() => {
   clearOriginEnv()
-  if (ORIGINAL_NODE_ENV) {
-    process.env.NODE_ENV = ORIGINAL_NODE_ENV
-  } else {
-    delete process.env.NODE_ENV
-  }
+  vi.unstubAllEnvs()
 })
 
 describe("resolveAppOrigin", () => {
   it("prefers an explicit public app url", () => {
-    process.env.NODE_ENV = "production"
+    vi.stubEnv("NODE_ENV", "production")
     process.env.NEXT_PUBLIC_APP_URL = "https://expenses-counter.vercel.app/"
 
     expect(resolveAppOrigin()).toBe("https://expenses-counter.vercel.app")
@@ -38,7 +32,7 @@ describe("resolveAppOrigin", () => {
   })
 
   it("rejects request headers in production without an explicit origin", () => {
-    process.env.NODE_ENV = "production"
+    vi.stubEnv("NODE_ENV", "production")
 
     expect(() =>
       resolveAppOrigin({
@@ -50,7 +44,7 @@ describe("resolveAppOrigin", () => {
   })
 
   it("uses forwarded request headers in development when no explicit origin is configured", () => {
-    process.env.NODE_ENV = "development"
+    vi.stubEnv("NODE_ENV", "development")
 
     expect(
       resolveAppOrigin({
@@ -62,7 +56,7 @@ describe("resolveAppOrigin", () => {
   })
 
   it("falls back to vercel runtime host outside production when request headers are absent", () => {
-    process.env.NODE_ENV = "development"
+    vi.stubEnv("NODE_ENV", "development")
     process.env.VERCEL_URL = "expenses-counter-git-main-erick.vercel.app"
 
     expect(resolveAppOrigin()).toBe(
@@ -71,7 +65,7 @@ describe("resolveAppOrigin", () => {
   })
 
   it("keeps localhost as the final non-production fallback", () => {
-    process.env.NODE_ENV = "development"
+    vi.stubEnv("NODE_ENV", "development")
 
     expect(resolveAppOrigin()).toBe("http://localhost:3000")
   })
