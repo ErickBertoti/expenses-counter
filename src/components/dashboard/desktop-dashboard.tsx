@@ -3,6 +3,7 @@ import {
   CalendarClockIcon,
   CalendarRangeIcon,
   PencilLineIcon,
+  PlusIcon,
   SearchXIcon,
 } from "lucide-react"
 
@@ -13,9 +14,7 @@ import {
 } from "@/components/dashboard/delete-purchase-button"
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
 import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
-import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
-import { PurchaseForm } from "@/components/dashboard/purchase-form"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { SortablePurchaseTable } from "@/components/dashboard/sortable-purchase-table"
 import { Badge } from "@/components/ui/badge"
@@ -52,14 +51,11 @@ import {
   getInstallmentAmountForMonth,
   getMonthlyExpensePeriodLabel,
 } from "@/lib/purchases"
-import type { MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 type DesktopDashboardProps = {
   dashboard: DashboardData
   focusColumnLabel: string
-  formValues: PurchaseFormValues
-  monthlyExpenseFormValues: MonthlyExpenseFormValues
   returnTo: string
 }
 
@@ -88,10 +84,11 @@ function SummaryMetric({
 export function DesktopDashboard({
   dashboard,
   focusColumnLabel,
-  formValues,
-  monthlyExpenseFormValues,
   returnTo,
 }: DesktopDashboardProps) {
+  const newPurchaseHref = buildReturnToPath(dashboard.filters, { compose: "purchase" })
+  const newMonthlyExpenseHref = buildReturnToPath(dashboard.filters, { compose: "monthly" })
+
   return (
     <div className="hidden lg:block">
       <div className="flex w-full flex-col gap-6">
@@ -110,7 +107,17 @@ export function DesktopDashboard({
               </p>
             </div>
           </div>
-          <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
+          <div className="flex w-full shrink-0 flex-col gap-3 lg:w-auto lg:items-end">
+            <div className="flex flex-wrap gap-2">
+              <Link href={newPurchaseHref} scroll={false} data-expense-trigger="purchase" className={buttonVariants()}>
+                <PlusIcon data-icon="inline-start" />
+                Nova compra
+              </Link>
+              <Link href={newMonthlyExpenseHref} scroll={false} data-expense-trigger="monthly" className={buttonVariants({ variant: "outline" })}>
+                <CalendarClockIcon data-icon="inline-start" />
+                Mensalidade
+              </Link>
+            </div>
             <Badge
               variant="secondary"
               className="w-full justify-center truncate text-center sm:w-auto sm:max-w-full sm:justify-start sm:text-left"
@@ -125,8 +132,8 @@ export function DesktopDashboard({
           </div>
         </header>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_23rem]">
-          <div className="order-2 flex min-w-0 flex-col gap-6 xl:order-1">
+        <section className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-6">
             <section className="rounded-lg border border-border bg-card p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -143,7 +150,7 @@ export function DesktopDashboard({
                   terminou.
                 </p>
               </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <SummaryMetric
                   label="Total do mês"
                   value={formatCurrencyFromCents(
@@ -218,7 +225,7 @@ export function DesktopDashboard({
                         !dashboard.filters.month &&
                         !dashboard.filters.cardId
                           ? "Compras desativadas ficam ocultas. Ative o switch \"Incluir desativadas nos totais\" nos filtros para encontrá-las sem reativá-las."
-                          : "Ajuste os filtros ou cadastre a primeira compra parcelada no painel ao lado."}
+                          : "Ajuste os filtros ou use “Nova compra” para cadastrar a primeira compra parcelada."}
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -293,6 +300,7 @@ export function DesktopDashboard({
                             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                               <Link
                                 href={editHref}
+                                scroll={false}
                                 className={cn(
                                   buttonVariants({
                                     variant: "outline",
@@ -348,7 +356,7 @@ export function DesktopDashboard({
                       <EmptyTitle>Nenhuma mensalidade encontrada</EmptyTitle>
                       <EmptyDescription>
                         Cadastre academia, assinatura, plano ou outro custo
-                        recorrente no painel lateral.
+                        recorrente usando “Mensalidade”.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -366,10 +374,7 @@ export function DesktopDashboard({
                     <TableBody>
                       {dashboard.monthlyExpenses.map((monthlyExpense) => {
                         const editHref = buildReturnToPath(
-                          {
-                            ...dashboard.filters,
-                            view: "monthly",
-                          },
+                          dashboard.filters,
                           {
                             editMonthly: monthlyExpense.id,
                           }
@@ -412,6 +417,7 @@ export function DesktopDashboard({
                               <div className="flex justify-end gap-2">
                                 <Link
                                   href={editHref}
+                                  scroll={false}
                                   className={cn(
                                     buttonVariants({
                                       variant: "outline",
@@ -601,25 +607,6 @@ export function DesktopDashboard({
               </CardContent>
             </Card>
           </div>
-
-          <aside className="order-1 flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:order-2 xl:self-start">
-            <PurchaseForm
-              key={dashboard.selectedPurchase?.id ?? "new"}
-              cards={dashboard.cards}
-              idPrefix="desktop-purchase"
-              initialValues={formValues}
-              isEditing={Boolean(dashboard.selectedPurchase)}
-              returnTo={returnTo}
-            />
-            <MonthlyExpenseForm
-              key={dashboard.selectedMonthlyExpense?.id ?? "new-monthly"}
-              cards={dashboard.cards}
-              idPrefix="desktop-monthly"
-              initialValues={monthlyExpenseFormValues}
-              isEditing={Boolean(dashboard.selectedMonthlyExpense)}
-              returnTo={returnTo}
-            />
-          </aside>
         </section>
       </div>
     </div>

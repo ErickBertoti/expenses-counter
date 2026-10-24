@@ -1,3 +1,4 @@
+import { ExpenseComposer } from "@/components/dashboard/expense-composer"
 import { DesktopDashboard } from "@/components/dashboard/desktop-dashboard"
 import { MobileDashboardShell } from "@/components/dashboard/mobile-dashboard-shell"
 import { getDashboardData } from "@/lib/dashboard"
@@ -77,15 +78,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         <MobileDashboardShell
           dashboard={dashboard}
           focusColumnLabel={focusColumnLabel}
-          formValues={formValues}
-          monthlyExpenseFormValues={monthlyExpenseFormValues}
           returnTo={returnTo}
         />
         <DesktopDashboard
           dashboard={dashboard}
           focusColumnLabel={focusColumnLabel}
+          returnTo={returnTo}
+        />
+        <ExpenseComposer
+          cards={dashboard.cards}
           formValues={formValues}
           monthlyExpenseFormValues={monthlyExpenseFormValues}
+          selectedPurchaseId={dashboard.selectedPurchase?.id}
+          selectedMonthlyExpenseId={dashboard.selectedMonthlyExpense?.id}
           returnTo={returnTo}
         />
       </div>

@@ -170,6 +170,7 @@ export function SortablePurchaseTable({
                   <div className="flex justify-end gap-2">
                     <Link
                       href={editHref}
+                      scroll={false}
                       className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                     >
                       <PencilLineIcon data-icon="inline-start" />

@@ -40,22 +40,49 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  responsive = false,
   ...props
-}: DrawerPrimitive.Popup.Props) {
+}: DrawerPrimitive.Popup.Props & { responsive?: boolean }) {
+  const viewportRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!responsive) return
+    const viewport = window.visualViewport
+    function updateViewport() {
+      const element = viewportRef.current
+      if (!element) return
+      element.style.setProperty("--drawer-viewport-height", `${viewport?.height ?? window.innerHeight}px`)
+      element.style.setProperty("--drawer-viewport-top", `${viewport?.offsetTop ?? 0}px`)
+    }
+    updateViewport()
+    viewport?.addEventListener("resize", updateViewport)
+    viewport?.addEventListener("scroll", updateViewport)
+    window.addEventListener("resize", updateViewport)
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport)
+      viewport?.removeEventListener("scroll", updateViewport)
+      window.removeEventListener("resize", updateViewport)
+    }
+  }, [responsive])
+
   return (
     <DrawerPortal>
       <DrawerOverlay />
       <DrawerPrimitive.Viewport
+        ref={viewportRef}
         data-slot="drawer-viewport"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 flex items-end justify-center px-2",
-          "pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4"
+          "fixed inset-x-0 z-50 flex justify-center",
+          responsive
+            ? "top-[var(--drawer-viewport-top,0px)] h-[var(--drawer-viewport-height,100dvh)] items-end p-2 lg:items-center lg:p-6"
+            : "bottom-0 items-end px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4"
         )}
       >
         <DrawerPrimitive.Popup
           data-slot="drawer-popup"
           className={cn(
-            "w-full max-w-xl outline-none",
+            "flex min-h-0 w-full max-w-xl flex-col outline-none",
+            responsive && "max-h-full lg:max-w-2xl",
             "transition-[transform,opacity] duration-200 ease-out",
             "data-[starting-style]:translate-y-6 data-[starting-style]:opacity-0",
             "data-[ending-style]:translate-y-6 data-[ending-style]:opacity-0",
@@ -68,13 +95,14 @@ function DrawerContent({
             data-slot="drawer-content"
             className={cn(
               "relative flex max-h-[min(calc(100dvh-0.5rem),52rem)] min-h-0 flex-col overflow-hidden",
+              responsive && "h-[min(48rem,calc(var(--drawer-viewport-height,100dvh)-1rem))] max-h-full lg:h-[min(48rem,calc(var(--drawer-viewport-height,100dvh)-3rem))]",
               "rounded-lg border border-border bg-card shadow-2xl shadow-foreground/10",
               "supports-[padding:max(0px)]:pb-0"
             )}
           >
             <div
               aria-hidden="true"
-              className="mx-auto mt-3 h-1.5 w-12 rounded-full bg-border"
+              className={cn("mx-auto mt-3 h-1.5 w-12 shrink-0 rounded-full bg-border", responsive && "lg:hidden")}
             />
             {children}
           </DrawerPrimitive.Content>
@@ -92,7 +120,7 @@ function DrawerHeader({
     <div
       data-slot="drawer-header"
       className={cn(
-        "flex items-start justify-between gap-3 border-b border-border px-4 pb-4 pt-3",
+        "flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 pb-4 pt-3",
         className
       )}
       {...props}

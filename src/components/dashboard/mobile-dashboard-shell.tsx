@@ -11,7 +11,6 @@ import {
   PlusIcon,
   SearchXIcon,
 } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
 
 import { signOut } from "@/app/actions"
 import {
@@ -20,9 +19,7 @@ import {
 } from "@/components/dashboard/delete-purchase-button"
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
 import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
-import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
-import { PurchaseForm } from "@/components/dashboard/purchase-form"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -55,9 +52,7 @@ import {
 import { resolveDashboardMonthHref } from "@/lib/dashboard-url"
 import type {
   DashboardView,
-  MonthlyExpenseFormValues,
   MonthlyExpenseWithCard,
-  PurchaseFormValues,
   PurchaseWithProgress,
 } from "@/lib/types"
 import { sortPurchases, type PurchaseSortKey } from "@/lib/purchase-sorting"
@@ -66,8 +61,6 @@ import { cn } from "@/lib/utils"
 type MobileDashboardShellProps = {
   dashboard: DashboardData
   focusColumnLabel: string
-  formValues: PurchaseFormValues
-  monthlyExpenseFormValues: MonthlyExpenseFormValues
   returnTo: string
 }
 
@@ -320,10 +313,7 @@ function MobileMonthlyExpenseCard({
   monthlyExpense: MonthlyExpenseWithCard
 }) {
   const editHref = buildReturnToPath(
-    {
-      ...filtersBase,
-      view: "monthly",
-    },
+    filtersBase,
     {
       editMonthly: monthlyExpense.id,
     }
@@ -395,12 +385,8 @@ function MobileMonthlyExpenseCard({
 export function MobileDashboardShell({
   dashboard,
   focusColumnLabel,
-  formValues,
-  monthlyExpenseFormValues,
   returnTo,
 }: MobileDashboardShellProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const purchaseSignature = dashboard.purchases
     .map((purchase) => `${purchase.id}:${purchase.updated_at}`)
@@ -414,19 +400,6 @@ export function MobileDashboardShell({
     purchaseSortState.context === purchaseSortContext
       ? purchaseSortState.value
       : "default"
-  const composeMode = searchParams.get("compose")
-  const editId = searchParams.get("edit")
-  const monthlyEditId = searchParams.get("editMonthly")
-  const isEditing = Boolean(
-    dashboard.selectedPurchase && editId === dashboard.selectedPurchase.id
-  )
-  const isMonthlyEditing = Boolean(
-    dashboard.selectedMonthlyExpense &&
-      monthlyEditId === dashboard.selectedMonthlyExpense.id
-  )
-  const purchaseSheetOpen =
-    composeMode === "1" || composeMode === "purchase" || isEditing
-  const monthlyExpenseSheetOpen = composeMode === "monthly" || isMonthlyEditing
   const filtersBase: DashboardBaseFilters = {
     query: dashboard.filters.query,
     status: dashboard.filters.status,
@@ -447,15 +420,7 @@ export function MobileDashboardShell({
   const newPurchaseHref = buildReturnToPath(filtersBase, {
     compose: "1",
   })
-  const newMonthlyExpenseHref = buildReturnToPath(
-    {
-      ...filtersBase,
-      view: "monthly",
-    },
-    {
-      compose: "monthly",
-    }
-  )
+  const newMonthlyExpenseHref = buildReturnToPath(filtersBase, { compose: "monthly" })
   const purchasesViewHref = buildReturnToPath({
     ...filtersBase,
     view: "purchases",
@@ -493,14 +458,8 @@ export function MobileDashboardShell({
       : null,
   ].filter(Boolean) as string[]
 
-  function closePurchaseSheet() {
-    router.replace(returnTo, {
-      scroll: false,
-    })
-  }
-
   return (
-    <div className="flex flex-col gap-4 lg:hidden">
+    <div className="flex flex-col gap-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:hidden">
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -530,34 +489,7 @@ export function MobileDashboardShell({
           </Badge>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Link
-            href={newPurchaseHref}
-            scroll={false}
-            className={cn(
-              buttonVariants({
-                size: "lg",
-              }),
-              "col-span-2 w-full"
-            )}
-          >
-            <PlusIcon data-icon="inline-start" />
-            Nova compra
-          </Link>
-          <Link
-            href={newMonthlyExpenseHref}
-            scroll={false}
-            className={cn(
-              buttonVariants({
-                size: "lg",
-                variant: "outline",
-              }),
-              "w-full"
-            )}
-          >
-            <CalendarClockIcon data-icon="inline-start" />
-            Mensalidade
-          </Link>
+        <div className="mt-4">
           <Button
             type="button"
             size="lg"
@@ -816,51 +748,18 @@ export function MobileDashboardShell({
         </DrawerContent>
       </Drawer>
 
-      <Drawer
-        open={purchaseSheetOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closePurchaseSheet()
-          }
-        }}
-      >
-        <DrawerContent className="max-w-none sm:max-w-xl">
-          <div className="absolute right-4 top-4 z-10">
-            <DrawerClose />
-          </div>
-          <PurchaseForm
-            cards={dashboard.cards}
-            idPrefix="mobile-purchase"
-            initialValues={formValues}
-            isEditing={isEditing}
-            returnTo={returnTo}
-            variant="mobile"
-          />
-        </DrawerContent>
-      </Drawer>
-
-      <Drawer
-        open={monthlyExpenseSheetOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closePurchaseSheet()
-          }
-        }}
-      >
-        <DrawerContent className="max-w-none sm:max-w-xl">
-          <div className="absolute right-4 top-4 z-10">
-            <DrawerClose />
-          </div>
-          <MonthlyExpenseForm
-            cards={dashboard.cards}
-            idPrefix="mobile-monthly"
-            initialValues={monthlyExpenseFormValues}
-            isEditing={isMonthlyEditing}
-            returnTo={returnTo}
-            variant="mobile"
-          />
-        </DrawerContent>
-      </Drawer>
+      <nav aria-label="Cadastrar despesas" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex w-full max-w-3xl gap-2">
+          <Link href={newPurchaseHref} scroll={false} data-expense-trigger="purchase" className={cn(buttonVariants({ size: "lg" }), "min-w-0 flex-1")}>
+            <PlusIcon data-icon="inline-start" />
+            Nova compra
+          </Link>
+          <Link href={newMonthlyExpenseHref} scroll={false} data-expense-trigger="monthly" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "min-w-0 flex-1")}>
+            <CalendarClockIcon data-icon="inline-start" />
+            Mensalidade
+          </Link>
+        </div>
+      </nav>
     </div>
   )
 }
