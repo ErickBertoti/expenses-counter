@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { MonthlyExpenseForm } from "@/components/dashboard/monthly-expense-form"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer"
 import { resolveExpenseComposerMode, type ExpenseComposerMode } from "@/lib/dashboard-url"
+import { installExpenseNavigationGuard } from "@/lib/expense-navigation-guard"
 import type { CardRecord, MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 
 type ExpenseComposerProps = {
@@ -29,14 +30,30 @@ type ExpenseComposerProps = {
   returnTo: string
 }
 
+type HistoryProtection = {
+  discardOpen: boolean
+  updateStatus: (status: ExpenseFormStatus) => void
+  cancel: () => void
+  proceed: () => boolean
+}
+
 function ComposerSession({
-  mode, cards, formValues, monthlyExpenseFormValues, returnTo,
-}: ExpenseComposerProps & { mode: ExpenseComposerMode }) {
+  mode, cards, formValues, monthlyExpenseFormValues, returnTo, historyProtection,
+}: ExpenseComposerProps & { mode: ExpenseComposerMode; historyProtection: HistoryProtection }) {
   const router = useRouter()
   const [status, setStatus] = useState<ExpenseFormStatus>({ dirty: false, pending: false })
   const [discardOpen, setDiscardOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const openerRef = useRef<HTMLElement | null>(null)
+  const updateNavigationStatus = historyProtection.updateStatus
+  const updateStatus = useCallback((next: ExpenseFormStatus) => {
+    setStatus(next)
+    updateNavigationStatus(next)
+  }, [updateNavigationStatus])
+
+  useEffect(() => () => {
+    updateNavigationStatus({ dirty: false, pending: false })
+  }, [updateNavigationStatus])
 
   useLayoutEffect(() => {
     const opener = document.activeElement
@@ -104,7 +121,7 @@ function ComposerSession({
             isEditing={mode.isEditing}
             returnTo={returnTo}
             onCancel={requestClose}
-            onStatusChange={setStatus}
+            onStatusChange={updateStatus}
           />
         ) : (
           <MonthlyExpenseForm
@@ -113,11 +130,17 @@ function ComposerSession({
             isEditing={mode.isEditing}
             returnTo={returnTo}
             onCancel={requestClose}
-            onStatusChange={setStatus}
+            onStatusChange={updateStatus}
           />
         )}
       </DrawerContent>
-      <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
+      <AlertDialog
+        open={discardOpen || historyProtection.discardOpen}
+        onOpenChange={(open) => {
+          setDiscardOpen(open)
+          if (!open) historyProtection.cancel()
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Descartar alterações?</AlertDialogTitle>
@@ -131,7 +154,10 @@ function ComposerSession({
               variant="destructive"
               onClick={() => {
                 setDiscardOpen(false)
-                close()
+                if (historyProtection.proceed()) {
+                  updateStatus({ dirty: false, pending: false })
+                  setClosing(true)
+                } else close()
               }}
             >
               Descartar
@@ -144,10 +170,63 @@ function ComposerSession({
 }
 
 export function ExpenseComposer(props: ExpenseComposerProps) {
+  const router = useRouter()
   const searchParams = useSearchParams()
+  const guardRef = useRef<ReturnType<typeof installExpenseNavigationGuard> | null>(null)
+  const statusRef = useRef<ExpenseFormStatus>({ dirty: false, pending: false })
+  const [historyDiscardOpen, setHistoryDiscardOpen] = useState(false)
+
+  // Register before router/store subscriptions can unmount the active session.
+  useLayoutEffect(() => {
+    guardRef.current = installExpenseNavigationGuard(window, {
+      isBlocked: () => statusRef.current.dirty || statusRef.current.pending,
+      onBlocked: () => {
+        if (statusRef.current.pending) guardRef.current?.cancel()
+        else setHistoryDiscardOpen(true)
+      },
+      navigate: (href) => router.replace(href, { scroll: false }),
+    })
+    return () => {
+      guardRef.current?.dispose()
+      guardRef.current = null
+    }
+  }, [router])
+
+  useEffect(() => {
+    let disposed = false
+    // Wrap history after Next installs its own pushState/replaceState methods.
+    queueMicrotask(() => {
+      if (!disposed) guardRef.current?.trackHistory()
+    })
+    return () => { disposed = true }
+  }, [router])
+
+  const updateStatus = useCallback((status: ExpenseFormStatus) => {
+    statusRef.current = status
+  }, [])
+
   const mode = resolveExpenseComposerMode(
     searchParams.toString(), props.selectedPurchaseId, props.selectedMonthlyExpenseId
   )
   if (!mode) return null
-  return <ComposerSession key={mode.key} {...props} mode={mode} />
+  return (
+    <ComposerSession
+      key={`${mode.key}:${searchParams.toString()}`}
+      {...props}
+      mode={mode}
+      historyProtection={{
+        discardOpen: historyDiscardOpen,
+        updateStatus,
+        cancel: () => {
+          guardRef.current?.cancel()
+          setHistoryDiscardOpen(false)
+        },
+        proceed: () => {
+          const proceeding = guardRef.current?.proceed() ?? false
+          setHistoryDiscardOpen(false)
+          return proceeding
+        },
+      }}
+    />
+  )
 }
