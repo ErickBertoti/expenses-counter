@@ -4,11 +4,8 @@ import { MobileDashboardShell } from "@/components/dashboard/mobile-dashboard-sh
 import { getDashboardData } from "@/lib/dashboard"
 import {
   buildReturnToPath,
-  formatCentsForInput,
-  getCurrentDateValue,
   getCurrentMonthKey,
 } from "@/lib/purchases"
-import type { MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 
 type HomePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -18,59 +15,13 @@ export const dynamic = "force-dynamic"
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const resolvedSearchParams = await searchParams
-  const dashboard = await getDashboardData(resolvedSearchParams)
+  const { composerData, ...dashboard } = await getDashboardData(resolvedSearchParams)
   const currentMonth = getCurrentMonthKey()
   const returnTo = buildReturnToPath(dashboard.filters)
   const focusColumnLabel =
     dashboard.focusMonth === currentMonth
       ? "Parcela neste mês"
       : `Parcela em ${dashboard.focusSummary.month_label}`
-  const formValues: PurchaseFormValues = dashboard.selectedPurchase
-    ? {
-        purchaseId: dashboard.selectedPurchase.id,
-        description: dashboard.selectedPurchase.description,
-        purchaseDate: dashboard.selectedPurchase.purchase_date,
-        firstInstallmentMonth:
-          dashboard.selectedPurchase.first_installment_month.slice(0, 7),
-        installmentCount: dashboard.selectedPurchase.installment_count,
-        totalAmount: formatCentsForInput(
-          dashboard.selectedPurchase.total_amount_cents
-        ),
-        cardId: dashboard.selectedPurchase.card_id,
-        notes: dashboard.selectedPurchase.notes ?? "",
-        redirectTo: returnTo,
-      }
-    : {
-        description: "",
-        purchaseDate: getCurrentDateValue(),
-        firstInstallmentMonth: dashboard.filters.month || currentMonth,
-        installmentCount: 1,
-        totalAmount: "",
-        cardId: dashboard.defaultCard.id,
-        notes: "",
-        redirectTo: returnTo,
-      }
-  const monthlyExpenseFormValues: MonthlyExpenseFormValues =
-    dashboard.selectedMonthlyExpense
-      ? {
-          monthlyExpenseId: dashboard.selectedMonthlyExpense.id,
-          description: dashboard.selectedMonthlyExpense.description,
-          amount: formatCentsForInput(dashboard.selectedMonthlyExpense.amount_cents),
-          cardId: dashboard.selectedMonthlyExpense.card_id,
-          startMonth: dashboard.selectedMonthlyExpense.start_month.slice(0, 7),
-          endMonth: dashboard.selectedMonthlyExpense.end_month?.slice(0, 7) ?? "",
-          notes: dashboard.selectedMonthlyExpense.notes ?? "",
-          redirectTo: returnTo,
-        }
-      : {
-          description: "",
-          amount: "",
-          cardId: dashboard.defaultCard.id,
-          startMonth: dashboard.filters.month || currentMonth,
-          endMonth: "",
-          notes: "",
-          redirectTo: returnTo,
-        }
 
   return (
     <main className="min-h-screen px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8">
@@ -87,10 +38,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         />
         <ExpenseComposer
           cards={dashboard.cards}
-          formValues={formValues}
-          monthlyExpenseFormValues={monthlyExpenseFormValues}
-          selectedPurchaseId={dashboard.selectedPurchase?.id}
-          selectedMonthlyExpenseId={dashboard.selectedMonthlyExpense?.id}
+          data={composerData}
           returnTo={returnTo}
         />
       </div>

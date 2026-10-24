@@ -20,6 +20,7 @@ import {
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
 import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
+import { ExpenseComposerLink } from "@/components/dashboard/expense-composer-link"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -202,9 +203,8 @@ function MobilePurchaseCard({
       </details>
 
       <div className="mt-3 flex items-center justify-end gap-2">
-        <Link
+        <ExpenseComposerLink
           href={editHref}
-          scroll={false}
           className={cn(
             buttonVariants({
               variant: "outline",
@@ -214,7 +214,7 @@ function MobilePurchaseCard({
         >
           <PencilLineIcon data-icon="inline-start" />
           Editar
-        </Link>
+        </ExpenseComposerLink>
         <PurchaseDisabledToggleButton
           className="shrink-0"
           description={purchase.description}
@@ -355,9 +355,8 @@ function MobileMonthlyExpenseCard({
       </dl>
 
       <div className="mt-3 flex items-center justify-end gap-2">
-        <Link
+        <ExpenseComposerLink
           href={editHref}
-          scroll={false}
           className={cn(
             buttonVariants({
               variant: "outline",
@@ -367,7 +366,7 @@ function MobileMonthlyExpenseCard({
         >
           <PencilLineIcon data-icon="inline-start" />
           Editar
-        </Link>
+        </ExpenseComposerLink>
         <MonthlyExpenseDisabledToggleButton
           className="shrink-0"
           description={monthlyExpense.description}
@@ -750,14 +749,14 @@ export function MobileDashboardShell({
 
       <nav aria-label="Cadastrar despesas" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto flex w-full max-w-3xl gap-2">
-          <Link href={newPurchaseHref} scroll={false} data-expense-trigger="purchase" className={cn(buttonVariants({ size: "lg" }), "min-w-0 flex-1")}>
+          <ExpenseComposerLink href={newPurchaseHref} data-expense-trigger="purchase" className={cn(buttonVariants({ size: "lg" }), "min-w-0 flex-1")}>
             <PlusIcon data-icon="inline-start" />
             Nova compra
-          </Link>
-          <Link href={newMonthlyExpenseHref} scroll={false} data-expense-trigger="monthly" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "min-w-0 flex-1")}>
+          </ExpenseComposerLink>
+          <ExpenseComposerLink href={newMonthlyExpenseHref} data-expense-trigger="monthly" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "min-w-0 flex-1")}>
             <CalendarClockIcon data-icon="inline-start" />
             Mensalidade
-          </Link>
+          </ExpenseComposerLink>
         </div>
       </nav>
     </div>

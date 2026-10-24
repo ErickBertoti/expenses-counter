@@ -15,6 +15,7 @@ import {
 import { MonthlyAnalytics } from "@/components/dashboard/monthly-analytics"
 import { MonthlyExportPanel } from "@/components/dashboard/monthly-export-panel"
 import { PurchaseFilters } from "@/components/dashboard/purchase-filters"
+import { ExpenseComposerLink } from "@/components/dashboard/expense-composer-link"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { SortablePurchaseTable } from "@/components/dashboard/sortable-purchase-table"
 import { Badge } from "@/components/ui/badge"
@@ -109,14 +110,14 @@ export function DesktopDashboard({
           </div>
           <div className="flex w-full shrink-0 flex-col gap-3 lg:w-auto lg:items-end">
             <div className="flex flex-wrap gap-2">
-              <Link href={newPurchaseHref} scroll={false} data-expense-trigger="purchase" className={buttonVariants()}>
+              <ExpenseComposerLink href={newPurchaseHref} data-expense-trigger="purchase" className={buttonVariants()}>
                 <PlusIcon data-icon="inline-start" />
                 Nova compra
-              </Link>
-              <Link href={newMonthlyExpenseHref} scroll={false} data-expense-trigger="monthly" className={buttonVariants({ variant: "outline" })}>
+              </ExpenseComposerLink>
+              <ExpenseComposerLink href={newMonthlyExpenseHref} data-expense-trigger="monthly" className={buttonVariants({ variant: "outline" })}>
                 <CalendarClockIcon data-icon="inline-start" />
                 Mensalidade
-              </Link>
+              </ExpenseComposerLink>
             </div>
             <Badge
               variant="secondary"
@@ -298,9 +299,8 @@ export function DesktopDashboard({
                               </div>
                             </dl>
                             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                              <Link
+                              <ExpenseComposerLink
                                 href={editHref}
-                                scroll={false}
                                 className={cn(
                                   buttonVariants({
                                     variant: "outline",
@@ -310,7 +310,7 @@ export function DesktopDashboard({
                               >
                                 <PencilLineIcon data-icon="inline-start" />
                                 Editar
-                              </Link>
+                              </ExpenseComposerLink>
                               <PurchaseDisabledToggleButton
                                 description={purchase.description}
                                 disabledState={purchase.status === "disabled"}
@@ -415,9 +415,8 @@ export function DesktopDashboard({
                             </TableCell>
                             <TableCell>
                               <div className="flex justify-end gap-2">
-                                <Link
+                                <ExpenseComposerLink
                                   href={editHref}
-                                  scroll={false}
                                   className={cn(
                                     buttonVariants({
                                       variant: "outline",
@@ -427,7 +426,7 @@ export function DesktopDashboard({
                                 >
                                   <PencilLineIcon data-icon="inline-start" />
                                   Editar
-                                </Link>
+                                </ExpenseComposerLink>
                                 <MonthlyExpenseDisabledToggleButton
                                   description={monthlyExpense.description}
                                   disabledState={monthlyExpense.is_disabled}

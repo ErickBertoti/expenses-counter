@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Link from "next/link"
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react"
 
 import { PurchaseDisabledToggleButton } from "@/components/dashboard/delete-purchase-button"
+import { ExpenseComposerLink } from "@/components/dashboard/expense-composer-link"
 import { PurchaseStatusBadge } from "@/components/dashboard/purchase-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -168,14 +168,13 @@ export function SortablePurchaseTable({
                 <TableCell><PurchaseStatusBadge status={purchase.status} /></TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
-                    <Link
+                    <ExpenseComposerLink
                       href={editHref}
-                      scroll={false}
                       className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                     >
                       <PencilLineIcon data-icon="inline-start" />
                       Editar
-                    </Link>
+                    </ExpenseComposerLink>
                     <PurchaseDisabledToggleButton
                       description={purchase.description}
                       disabledState={purchase.status === "disabled"}
