@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState, useSyncExternalStore } from "react"
 import {
   ClipboardIcon,
   DownloadIcon,
@@ -36,28 +36,24 @@ function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError"
 }
 
+const subscribeToCapabilities = () => () => {}
+const serverCapabilities = () => 0
+
+function imageCapabilities() {
+  const probeFile = new File([""], "resumo.png", { type: "image/png" })
+  const canShare = typeof navigator.canShare === "function" && navigator.canShare({ files: [probeFile] })
+  const canCopy = typeof ClipboardItem !== "undefined" && typeof navigator.clipboard?.write === "function"
+  return (canShare ? 1 : 0) | (canCopy ? 2 : 0)
+}
+
 export function MonthlyExportPanel({ model }: MonthlyExportPanelProps) {
   const exportText = useMemo(() => buildMonthlyExportText(model), [model])
-  const [canShareImage, setCanShareImage] = useState(false)
-  const [canCopyImage, setCanCopyImage] = useState(false)
+  const capabilities = useSyncExternalStore(subscribeToCapabilities, imageCapabilities, serverCapabilities)
+  const canShareImage = Boolean(capabilities & 1)
+  const canCopyImage = Boolean(capabilities & 2)
   const [busyAction, setBusyAction] = useState<
     "copy-text" | "copy-image" | "download" | "share" | null
   >(null)
-
-  useEffect(() => {
-    const probeFile = new File([""], getMonthlyExportFileName(model), {
-      type: "image/png",
-    })
-
-    setCanShareImage(
-      typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [probeFile] })
-    )
-    setCanCopyImage(
-      typeof ClipboardItem !== "undefined" &&
-        typeof navigator.clipboard?.write === "function"
-    )
-  }, [model])
 
   async function copyText() {
     setBusyAction("copy-text")
