@@ -17,16 +17,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Drawer, DrawerClose, DrawerContent } from "@/components/ui/drawer"
-import { resolveExpenseComposerMode, type ExpenseComposerMode } from "@/lib/dashboard-url"
+import type { ExpenseComposerMode } from "@/lib/dashboard-url"
+import { resolveExpenseComposer, type ExpenseComposerData } from "@/lib/expense-composer-data"
+import { navigateExpenseComposer } from "@/lib/expense-composer-navigation"
 import { installExpenseNavigationGuard } from "@/lib/expense-navigation-guard"
 import type { CardRecord, MonthlyExpenseFormValues, PurchaseFormValues } from "@/lib/types"
 
 type ExpenseComposerProps = {
   cards: CardRecord[]
-  formValues: PurchaseFormValues
-  monthlyExpenseFormValues: MonthlyExpenseFormValues
-  selectedPurchaseId?: string
-  selectedMonthlyExpenseId?: string
+  data: ExpenseComposerData
   returnTo: string
 }
 
@@ -39,7 +38,12 @@ type HistoryProtection = {
 
 function ComposerSession({
   mode, cards, formValues, monthlyExpenseFormValues, returnTo, historyProtection,
-}: ExpenseComposerProps & { mode: ExpenseComposerMode; historyProtection: HistoryProtection }) {
+}: Pick<ExpenseComposerProps, "cards" | "returnTo"> & {
+  formValues: PurchaseFormValues
+  monthlyExpenseFormValues: MonthlyExpenseFormValues
+  mode: ExpenseComposerMode
+  historyProtection: HistoryProtection
+}) {
   const router = useRouter()
   const [status, setStatus] = useState<ExpenseFormStatus>({ dirty: false, pending: false })
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -68,7 +72,8 @@ function ComposerSession({
         const previous = openerRef.current
         const fallback = Array.from(document.querySelectorAll<HTMLElement>(`[data-expense-trigger="${mode.kind}"]`))
           .find((element) => element.getClientRects().length > 0)
-        const target = previous?.isConnected && previous !== document.body ? previous : fallback
+        const target = previous?.isConnected && previous !== document.body && previous.getClientRects().length > 0
+          ? previous : fallback
         target?.focus({ preventScroll: true })
       })
     }
@@ -86,7 +91,7 @@ function ComposerSession({
 
   function close() {
     setClosing(true)
-    router.replace(returnTo, { scroll: false })
+    if (!navigateExpenseComposer(window, returnTo, true)) router.replace(returnTo, { scroll: false })
   }
 
   function requestClose() {
@@ -205,15 +210,14 @@ export function ExpenseComposer(props: ExpenseComposerProps) {
     statusRef.current = status
   }, [])
 
-  const mode = resolveExpenseComposerMode(
-    searchParams.toString(), props.selectedPurchaseId, props.selectedMonthlyExpenseId
-  )
-  if (!mode) return null
+  const composer = resolveExpenseComposer(searchParams.toString(), props.data)
+  if (!composer) return null
   return (
     <ComposerSession
-      key={`${mode.key}:${searchParams.toString()}`}
-      {...props}
-      mode={mode}
+      key={`${composer.mode.key}:${searchParams.toString()}`}
+      cards={props.cards}
+      returnTo={props.returnTo}
+      {...composer}
       historyProtection={{
         discardOpen: historyDiscardOpen,
         updateStatus,

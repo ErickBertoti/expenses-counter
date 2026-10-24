@@ -3,7 +3,9 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/server"
 import { buildMonthlyExportModel } from "@/lib/monthly-export"
 import { buildDashboardAnalytics } from "@/lib/analytics"
+import { buildExpenseComposerData } from "@/lib/expense-composer-data"
 import {
+  buildReturnToPath,
   buildMonthlyBreakdowns,
   buildMonthlyExpenseWithCard,
   buildMonthlySummaries,
@@ -13,6 +15,7 @@ import {
   filterMonthlyExpenses,
   filterPurchases,
   getCurrentMonthKey,
+  getCurrentDateValue,
   parseDashboardFilters,
   sortMonthlyExpensesForDashboard,
   sortPurchasesForDashboard,
@@ -142,12 +145,6 @@ export async function getDashboardData(
     summaryFilters
   )
   const includeDisabledInAnalytics = shouldIncludeDisabledInAnalytics(filters)
-  const selectedPurchase =
-    purchaseRecords.find((purchase) => purchase.id === filters.editId) ?? null
-  const selectedMonthlyExpense =
-    monthlyExpenseRecords.find(
-      (monthlyExpense) => monthlyExpense.id === filters.monthlyEditId
-    ) ?? null
   const focusMonth = filters.month || currentMonth
   const monthlyBreakdowns = buildMonthlyBreakdowns({
     focusMonth,
@@ -209,6 +206,14 @@ export async function getDashboardData(
   const defaultCard = cards.find((card) => card.is_default) ?? cards[0]
 
   return {
+    composerData: buildExpenseComposerData({
+      purchases: purchaseRecords,
+      monthlyExpenses: monthlyExpenseRecords,
+      cardId: defaultCard.id,
+      month: filters.month || currentMonth,
+      today: getCurrentDateValue(),
+      returnTo: buildReturnToPath(filters),
+    }),
     analytics,
     activePurchaseCount,
     activeMonthlyExpenseCount,
@@ -224,10 +229,8 @@ export async function getDashboardData(
     monthlySummaries,
     purchases: filteredPurchases,
     remainingAmountCents,
-    selectedMonthlyExpense,
-    selectedPurchase,
     user,
   }
 }
 
-export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
+export type DashboardData = Omit<Awaited<ReturnType<typeof getDashboardData>>, "composerData">
