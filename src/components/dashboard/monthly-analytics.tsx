@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils"
 type MonthlyAnalyticsProps = {
   analytics: DashboardAnalytics
   focusMonth: string
+  showMonthSelector?: boolean
 }
 
 type TooltipPayload = { payload?: TimelinePoint }
@@ -314,7 +315,7 @@ function PurchaseRanking({ analytics }: { analytics: DashboardAnalytics }) {
   )
 }
 
-export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProps) {
+export function MonthlyAnalytics({ analytics, focusMonth, showMonthSelector = true }: MonthlyAnalyticsProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -363,15 +364,17 @@ export function MonthlyAnalytics({ analytics, focusMonth }: MonthlyAnalyticsProp
               Parcelas e mensalidades programadas. Os valores não representam conciliação da fatura.
             </p>
           </div>
-          <label className="grid w-full gap-1.5 text-xs font-medium text-muted-foreground sm:w-44">
-            Mês em foco
-            <Input
-              type="month"
-              value={focusMonth}
-              onChange={(event) => selectMonth(event.target.value)}
-              className="bg-background text-foreground"
-            />
-          </label>
+          {showMonthSelector ? (
+            <label className="grid w-full gap-1.5 text-xs font-medium text-muted-foreground sm:w-44">
+              Mês em foco
+              <Input
+                type="month"
+                value={focusMonth}
+                onChange={(event) => selectMonth(event.target.value)}
+                className="bg-background text-foreground"
+              />
+            </label>
+          ) : null}
         </div>
 
         {analytics.timeline.every((point) => point.totalAmountCents === 0) ? (

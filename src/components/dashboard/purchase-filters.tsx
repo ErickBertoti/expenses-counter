@@ -4,6 +4,7 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
+  useRef,
   useState,
 } from "react"
 import { RotateCcwIcon, SearchIcon } from "lucide-react"
@@ -35,6 +36,8 @@ type PurchaseFiltersProps = {
   filters: DashboardFilters
   idPrefix?: string
   showCardFilter: boolean
+  showMonthFilter?: boolean
+  compact?: boolean
   variant?: "desktop" | "mobile"
 }
 
@@ -44,12 +47,15 @@ export function PurchaseFilters({
   filters,
   idPrefix = "purchase-filters",
   showCardFilter,
+  showMonthFilter = true,
+  compact = false,
   variant = "desktop",
 }: PurchaseFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(filters.query)
+  const resettingFilters = useRef(false)
   const deferredQuery = useDeferredValue(query)
   const searchParamsString = searchParams.toString()
   const isMobile = variant === "mobile"
@@ -71,6 +77,7 @@ export function PurchaseFilters({
   }
 
   function resetFilters() {
+    resettingFilters.current = Boolean(query || filters.query)
     setQuery("")
     replaceFilters({
       q: "",
@@ -82,6 +89,11 @@ export function PurchaseFilters({
   }
 
   useEffect(() => {
+    // Clearing the search must not race the reset with the previous URL's month/status.
+    if (resettingFilters.current) {
+      if (!filters.query && !deferredQuery) resettingFilters.current = false
+      return
+    }
     if (deferredQuery === filters.query) {
       return
     }
@@ -99,8 +111,8 @@ export function PurchaseFilters({
   }, [deferredQuery, filters.query, pathname, router, searchParamsString])
 
   return (
-    <div className={cn("flex flex-col", isMobile ? "gap-4" : "gap-5", className)}>
-      {isMobile ? null : (
+    <div className={cn("flex flex-col", isMobile || compact ? "gap-4" : "gap-5", className)}>
+      {isMobile || compact ? null : (
         <div className="flex flex-col gap-1">
           <h2 className="font-heading text-lg font-semibold">Filtros</h2>
           <p className="text-sm text-muted-foreground">
@@ -115,7 +127,11 @@ export function PurchaseFilters({
           "gap-4",
           isMobile
             ? ""
-            : "md:grid md:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]"
+            : !showMonthFilter
+              ? showCardFilter
+                ? "md:grid md:grid-cols-[minmax(0,1.8fr)_repeat(2,minmax(0,1fr))]"
+                : "md:grid md:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]"
+              : "md:grid md:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_repeat(3,minmax(0,1fr))]"
         )}
       >
         <Field>
@@ -161,17 +177,19 @@ export function PurchaseFilters({
           </FieldContent>
         </Field>
 
-        <Field>
-          <FieldLabel htmlFor={fieldId("month")}>Mês</FieldLabel>
-          <FieldContent>
-            <Input
-              id={fieldId("month")}
-              type="month"
-              value={filters.month}
-              onChange={(event) => replaceFilters({ month: event.target.value })}
-            />
-          </FieldContent>
-        </Field>
+        {showMonthFilter ? (
+          <Field>
+            <FieldLabel htmlFor={fieldId("month")}>Mês</FieldLabel>
+            <FieldContent>
+              <Input
+                id={fieldId("month")}
+                type="month"
+                value={filters.month}
+                onChange={(event) => replaceFilters({ month: event.target.value })}
+              />
+            </FieldContent>
+          </Field>
+        ) : null}
 
         {showCardFilter ? (
           <Field>
@@ -203,53 +221,55 @@ export function PurchaseFilters({
         ) : null}
       </FieldGroup>
 
-      <button
-        type="button"
-        role="switch"
-        aria-checked={filters.includeDisabled}
-        onClick={() =>
-          replaceFilters({ includeDisabled: filters.includeDisabled ? "" : "1" })
-        }
-        className="flex w-full items-center gap-3 rounded-md border border-border bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        <span
-          aria-hidden="true"
-          className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors",
-            filters.includeDisabled
-              ? "border-primary bg-primary"
-              : "border-input bg-background"
-          )}
+      <div className={cn(compact ? "flex items-center gap-4" : "contents")}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={filters.includeDisabled}
+          onClick={() =>
+            replaceFilters({ includeDisabled: filters.includeDisabled ? "" : "1" })
+          }
+          className={cn("flex w-full items-center gap-3 rounded-md border border-border bg-muted/50 p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", compact && "min-w-0 flex-1")}
         >
           <span
+            aria-hidden="true"
             className={cn(
-              "size-4 rounded-full bg-current shadow-sm transition-transform",
+              "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors",
               filters.includeDisabled
-                ? "translate-x-5 text-primary-foreground"
-                : "translate-x-1 text-muted-foreground"
+                ? "border-primary bg-primary"
+                : "border-input bg-background"
             )}
-          />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-medium">Incluir desativadas nos totais</span>
-          <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
-            {filters.includeDisabled
-              ? "Ativo nesta visão, sem reativar as compras."
-              : "Mostre-as e some seus valores sem alterar o estado salvo."}
+          >
+            <span
+              className={cn(
+                "size-4 rounded-full bg-current shadow-sm transition-transform",
+                filters.includeDisabled
+                  ? "translate-x-5 text-primary-foreground"
+                  : "translate-x-1 text-muted-foreground"
+              )}
+            />
           </span>
-        </span>
-      </button>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">Incluir desativadas nos totais</span>
+            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+              {filters.includeDisabled
+                ? "Ativo nesta visão, sem reativar as compras."
+                : "Mostre-as e some seus valores sem alterar o estado salvo."}
+            </span>
+          </span>
+        </button>
 
-      <div className={cn("flex", isMobile ? "" : "justify-end")}>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(isMobile ? "w-full" : "w-full sm:w-auto")}
-          onClick={resetFilters}
-        >
-          <RotateCcwIcon data-icon="inline-start" />
-          Limpar filtros
-        </Button>
+        <div className={cn("flex", compact && "shrink-0", isMobile ? "" : "justify-end")}>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(isMobile ? "w-full" : "w-full sm:w-auto")}
+            onClick={resetFilters}
+          >
+            <RotateCcwIcon data-icon="inline-start" />
+            Limpar filtros
+          </Button>
+        </div>
       </div>
     </div>
   )
